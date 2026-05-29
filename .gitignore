@@ -22,9 +22,6 @@
 *.vrb
 _minted-*/
 
-# ── Output PDF (build from source) ──────────────────────────────────────────
-main.pdf
-
 # ── Build directory ─────────────────────────────────────────────────────────
 build/
 
