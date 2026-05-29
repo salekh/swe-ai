@@ -7,6 +7,7 @@ XELATEX       = $(DOCKER_RUN) xelatex -interaction=nonstopmode -halt-on-error -s
 BIBER         = $(DOCKER_RUN) biber
 DOT           = dot
 MAIN          = main
+OUTPUT_PDF    = swe-ai-book.pdf
 BUILD_DIR     = build
 
 # Find all .dot files in diagrams/
@@ -35,15 +36,17 @@ build: diagrams ## Full build: diagrams → XeLaTeX (3 passes) → Biber → fin
 	$(XELATEX) $(MAIN).tex
 	@echo "=== Pass 4: XeLaTeX (final) ==="
 	$(XELATEX) $(MAIN).tex
+	@mv $(MAIN).pdf $(OUTPUT_PDF)
 	@echo ""
-	@echo "✅ Build complete: $(MAIN).pdf"
+	@echo "✅ Build complete: $(OUTPUT_PDF)"
 	@if command -v pdfinfo >/dev/null 2>&1; then \
-		echo "Pages: $$(pdfinfo $(MAIN).pdf 2>/dev/null | grep Pages | awk '{print $$2}')"; \
+		echo "Pages: $$(pdfinfo $(OUTPUT_PDF) 2>/dev/null | grep Pages | awk '{print $$2}')"; \
 	fi
 
 quick: ## Quick single-pass build (for drafts)
 	$(XELATEX) $(MAIN).tex
-	@echo "✅ Quick build complete: $(MAIN).pdf"
+	@mv $(MAIN).pdf $(OUTPUT_PDF)
+	@echo "✅ Quick build complete: $(OUTPUT_PDF)"
 
 diagrams: $(DOT_PDFS) ## Compile all Graphviz .dot files to PDF
 	@echo "✅ All diagrams compiled"
@@ -58,7 +61,7 @@ check: ## Validate LaTeX (draft mode, no output)
 	@echo "✅ LaTeX syntax check passed"
 
 clean: ## Remove all build artifacts
-	rm -f $(MAIN).pdf $(MAIN).aux $(MAIN).log $(MAIN).out $(MAIN).toc
+	rm -f $(MAIN).pdf $(OUTPUT_PDF) $(MAIN).aux $(MAIN).log $(MAIN).out $(MAIN).toc
 	rm -f $(MAIN).lof $(MAIN).lot $(MAIN).bbl $(MAIN).bcf $(MAIN).blg
 	rm -f $(MAIN).run.xml $(MAIN).fls $(MAIN).fdb_latexmk
 	rm -f chapters/*.aux frontmatter/*.aux
