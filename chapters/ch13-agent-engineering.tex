@@ -11,7 +11,14 @@
 \noindent
 Chapter~\ref{ch:agents} covered the conceptual foundations of AI agents: architectures, reasoning paradigms, memory systems, and guardrails. This chapter is about the unglamorous engineering work that transforms a prototype agent into a production system: deterministic scaffolding around probabilistic reasoning, structured error handling for tools that can fail in novel ways, observability for systems whose internal reasoning is opaque, and testing strategies for agents whose behavior is non-deterministic by design.
 
-The central thesis of this chapter is that \textbf{production agents are 20\% LLM and 80\% traditional software engineering}. The LLM provides the reasoning capability. Everything else---tool execution, state management, error recovery, observability, cost control, and safety---is conventional (if challenging) engineering.
+The central thesis of this chapter is that \textbf{production agents are 20\% LLM and 80\% traditional software engineering}. The LLM provides the reasoning capability. Everything else---tool execution, state management, error recovery, observability, cost control, and safety---is conventional (if challenging) engineering. Figure~\ref{fig:agent-skeleton} shows the components of the production agent skeleton.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{diagrams/compiled/ch13/agent-skeleton.pdf}
+\caption{The production agent skeleton: 20\% LLM reasoning surrounded by 80\% engineering infrastructure}
+\label{fig:agent-skeleton}
+\end{figure}
 
 
 \section{The Production Agent Skeleton}
@@ -200,3 +207,7 @@ Use the Confidence Gate pattern (Chapter~\ref{ch:app-architecture}):
     \item \textbf{Test at multiple levels}: Unit tests for components, scenario tests for end-to-end behavior, adversarial tests for resilience
     \item \textbf{Human-in-the-loop by default}: Approval gates and confidence-based routing, not full autonomy
 \end{enumerate}
+
+\begin{keytakeaway}
+The gap between a demo agent and a production agent is entirely engineering. Structure your reasoning traces, wrap every tool call in a framework, enforce termination conditions, and never trust the agent's self-assessment. Production agents are conventional engineering problems with an unconventional component at their core.
+\end{keytakeaway}

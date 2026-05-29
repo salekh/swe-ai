@@ -319,3 +319,7 @@ Post-training transforms a raw language model into a useful, aligned assistant. 
     \item \textbf{Evaluation is the bottleneck}: The ability to reliably measure model quality is often the limiting factor in development velocity
     \item \textbf{DPO is the pragmatic choice}: For most teams, DPO provides 90\% of RLHF's benefit with 30\% of the engineering complexity
 \end{enumerate}
+
+\begin{keytakeaway}
+Post-training is where a model transforms from ``predicts the next token'' to ``follows instructions usefully and safely.'' For practitioners, the critical insight is that alignment is not a one-time event---it is a continuous engineering process of evaluation, iteration, and monitoring, requiring the same discipline as any production system.
+\end{keytakeaway}

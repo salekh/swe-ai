@@ -1,0 +1,59 @@
+digraph ai_coding_evolution {
+    rankdir=LR;
+    bgcolor="#FAFAFA";
+    pad=0.5;
+    nodesep=0.6;
+    ranksep=1.2;
+    
+    node [
+        fontname="Helvetica Neue"
+        fontsize=11
+        style="filled,rounded"
+        shape=record
+        fillcolor="#F0F4F8"
+        color="#2D6A8F"
+        penwidth=1.5
+    ];
+    
+    edge [
+        color="#00758F"
+        penwidth=2
+        arrowsize=0.8
+    ];
+    
+    // Phase nodes
+    phase1 [
+        label="{Phase 1: Autocomplete|2021–2022|Inline suggestions\l~26% acceptance rate\l~15–25% productivity gain\l}"
+        fillcolor="#E8F5E9"
+        color="#2E7D32"
+    ];
+    
+    phase2 [
+        label="{Phase 2: Chat-Based|2023|Conversational coding\lContext-dependent quality\lComplete code generation\l}"
+        fillcolor="#E3F2FD"
+        color="#1565C0"
+    ];
+    
+    phase3 [
+        label="{Phase 3: AI-Native IDEs|2024|Multi-file editing\lCodebase indexing\lInline diff review\l}"
+        fillcolor="#FFF3E0"
+        color="#E65100"
+    ];
+    
+    phase4 [
+        label="{Phase 4: Agentic Coding|2025–2026|Autonomous planning\lSelf-correction loops\lMulti-step execution\l}"
+        fillcolor="#F3E5F5"
+        color="#7B1FA2"
+    ];
+    
+    phase1 -> phase2;
+    phase2 -> phase3;
+    phase3 -> phase4;
+    
+    // Capability labels
+    label="Evolution of AI-Assisted Coding";
+    labelloc=t;
+    fontname="Helvetica Neue Bold";
+    fontsize=16;
+    fontcolor="#1A1A2E";
+}

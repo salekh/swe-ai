@@ -1,0 +1,102 @@
+digraph ai_deployment {
+    bgcolor="#FAFAFA";
+    pad=0.5;
+    rankdir=LR;
+    nodesep=0.5;
+    ranksep=0.9;
+    
+    node [
+        fontname="Helvetica Neue"
+        fontsize=10
+        style="filled,rounded"
+        shape=box
+        penwidth=1.5
+    ];
+    
+    edge [
+        color="#4A4A4A"
+        penwidth=1.5
+        arrowsize=0.7
+    ];
+    
+    // Deployment Tuple
+    subgraph cluster_tuple {
+        label="Deployment Tuple";
+        labeljust=l;
+        fontname="Helvetica Neue Bold";
+        fontsize=11;
+        fontcolor="#1A1A2E";
+        style="rounded,dashed";
+        color="#00758F";
+        bgcolor="#F8FCFE";
+        
+        app [label="App\nVersion" fillcolor="#E3F2FD" color="#1565C0"];
+        prompt [label="Prompt\nVersion" fillcolor="#E3F2FD" color="#1565C0"];
+        model [label="Model\nVersion" fillcolor="#E3F2FD" color="#1565C0"];
+        index [label="RAG Index\nVersion" fillcolor="#E3F2FD" color="#1565C0"];
+        guard [label="Guardrail\nConfig" fillcolor="#E3F2FD" color="#1565C0"];
+    }
+    
+    // Pipeline stages
+    eval [
+        label="Pre-Deploy\nEvaluation\n──────\nGolden dataset\nRubric scoring\nBaseline comparison"
+        fillcolor="#FFF3E0"
+        color="#E65100"
+        shape=record
+    ];
+    
+    shadow [
+        label="Shadow\nDeployment\n──────\nDual processing\nQuality comparison\nNo user impact"
+        fillcolor="#F3E5F5"
+        color="#7B1FA2"
+        shape=record
+    ];
+    
+    canary [
+        label="Canary\nRollout\n──────\n5% → 25% → 50%\nAuto-monitoring\nAuto-rollback"
+        fillcolor="#E8F5E9"
+        color="#2E7D32"
+        shape=record
+    ];
+    
+    prod [
+        label="Full\nProduction\n──────\n100% traffic\nContinuous eval\nAnomaly detection"
+        fillcolor="#C8E6C9"
+        color="#2E7D32"
+        fontname="Helvetica Neue Bold"
+        shape=record
+    ];
+    
+    // Gate nodes
+    gate1 [label="✓ Pass?" shape=diamond fillcolor="#FFF9C4" color="#F9A825" fontsize=9];
+    gate2 [label="✓ Pass?" shape=diamond fillcolor="#FFF9C4" color="#F9A825" fontsize=9];
+    gate3 [label="✓ Pass?" shape=diamond fillcolor="#FFF9C4" color="#F9A825" fontsize=9];
+    
+    // Rollback
+    rollback [label="⟲ Rollback" shape=octagon fillcolor="#FFCDD2" color="#C4362A" fontsize=9];
+    
+    // Connections
+    app -> eval [style=invis];
+    prompt -> eval [style=invis];
+    model -> eval;
+    index -> eval [style=invis];
+    guard -> eval [style=invis];
+    
+    eval -> gate1;
+    gate1 -> shadow [label="yes" fontsize=8];
+    gate1 -> rollback [label="no" fontsize=8 color="#C4362A"];
+    
+    shadow -> gate2;
+    gate2 -> canary [label="yes" fontsize=8];
+    gate2 -> rollback [label="no" fontsize=8 color="#C4362A"];
+    
+    canary -> gate3;
+    gate3 -> prod [label="yes" fontsize=8];
+    gate3 -> rollback [label="no" fontsize=8 color="#C4362A"];
+    
+    label="AI System Deployment Pipeline";
+    labelloc=t;
+    fontname="Helvetica Neue Bold";
+    fontsize=16;
+    fontcolor="#1A1A2E";
+}

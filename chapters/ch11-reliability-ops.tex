@@ -18,7 +18,14 @@ This chapter covers the operational practices specific to AI systems: deployment
 
 \section{Deployment Strategies for AI Systems}
 
-AI systems have deployment characteristics that traditional CI/CD pipelines don't account for: non-deterministic outputs, model-version sensitivity, and the need for quality evaluation at deploy time.
+AI systems have deployment characteristics that traditional CI/CD pipelines don't account for: non-deterministic outputs, model-version sensitivity, and the need for quality evaluation at deploy time. Figure~\ref{fig:ai-deployment} shows the three-stage deployment pipeline.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{diagrams/compiled/ch11/ai-deployment-pipeline.pdf}
+\caption{AI system deployment pipeline: evaluation gates, shadow deployment, and canary rollout with auto-rollback}
+\label{fig:ai-deployment}
+\end{figure}
 
 \subsection{The AI Deployment Pipeline}
 
@@ -49,7 +56,14 @@ Every AI system deployment should be described by a tuple: \code{(app\_version, 
 
 \section{Monitoring AI Systems in Production}
 
-Traditional APM (Application Performance Monitoring) covers latency, throughput, and error rates. AI systems require an additional layer of monitoring for \emph{quality}---metrics that traditional tools do not capture.
+Traditional APM (Application Performance Monitoring) covers latency, throughput, and error rates. AI systems require an additional layer of monitoring for \emph{quality}---metrics that traditional tools do not capture. Figure~\ref{fig:monitoring-layers} illustrates the three-layer monitoring architecture.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{diagrams/compiled/ch11/monitoring-layers.pdf}
+\caption{Three-layer AI monitoring: infrastructure (real-time), quality (sampled), and business (daily)}
+\label{fig:monitoring-layers}
+\end{figure}
 
 \subsection{The Three Monitoring Layers}
 

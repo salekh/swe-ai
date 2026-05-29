@@ -19,6 +19,7 @@
 \RequirePackage{booktabs}
 \RequirePackage{tabularx}
 \RequirePackage{longtable}
+\RequirePackage{multirow}
 \RequirePackage{listings}
 \RequirePackage{amsmath}
 \RequirePackage{amssymb}

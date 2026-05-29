@@ -1,0 +1,87 @@
+digraph centaur_pod {
+    bgcolor="#FAFAFA";
+    pad=0.5;
+    rankdir=TB;
+    nodesep=0.6;
+    ranksep=0.9;
+    
+    node [
+        fontname="Helvetica Neue"
+        fontsize=10
+        style="filled,rounded"
+        shape=box
+        penwidth=1.5
+    ];
+    
+    edge [
+        color="#4A4A4A"
+        penwidth=1.5
+        arrowsize=0.7
+    ];
+    
+    // Traditional team
+    subgraph cluster_traditional {
+        label="Traditional Team (8–12 people)";
+        labeljust=l;
+        fontname="Helvetica Neue Bold";
+        fontsize=12;
+        fontcolor="#C4362A";
+        style="rounded";
+        color="#C4362A";
+        bgcolor="#FFF5F5";
+        
+        tl1 [label="Tech Lead" fillcolor="#FFCDD2" color="#C4362A"];
+        sr1 [label="Senior Eng" fillcolor="#FFCDD2" color="#C4362A"];
+        m1 [label="Mid Eng" fillcolor="#FFE0B2" color="#E65100"];
+        m2 [label="Mid Eng" fillcolor="#FFE0B2" color="#E65100"];
+        m3 [label="Mid Eng" fillcolor="#FFE0B2" color="#E65100"];
+        m4 [label="Mid Eng" fillcolor="#FFE0B2" color="#E65100"];
+        j1 [label="Junior" fillcolor="#E0E0E0" color="#4A4A4A"];
+        j2 [label="Junior" fillcolor="#E0E0E0" color="#4A4A4A"];
+        j3 [label="Junior" fillcolor="#E0E0E0" color="#4A4A4A"];
+        j4 [label="Junior" fillcolor="#E0E0E0" color="#4A4A4A"];
+        
+        tl1 -> sr1 [style=invis];
+        sr1 -> m1 [style=invis];
+    }
+    
+    // Centaur Pod
+    subgraph cluster_centaur {
+        label="Centaur Pod (3–5 people + AI)";
+        labeljust=l;
+        fontname="Helvetica Neue Bold";
+        fontsize=12;
+        fontcolor="#2E7D32";
+        style="rounded";
+        color="#2E7D32";
+        bgcolor="#F1F8E9";
+        
+        arch [label="Lead\nArchitect" fillcolor="#C8E6C9" color="#2E7D32" fontname="Helvetica Neue Bold"];
+        sr2 [label="Senior\nEngineer" fillcolor="#C8E6C9" color="#2E7D32"];
+        sr3 [label="Senior\nEngineer" fillcolor="#C8E6C9" color="#2E7D32"];
+        aire [label="AI Reliability\nEngineer" fillcolor="#BBDEFB" color="#1565C0"];
+        
+        // AI agents
+        agent1 [label="🤖 Coding\nAgent" shape=ellipse fillcolor="#F3E5F5" color="#7B1FA2"];
+        agent2 [label="🤖 Testing\nAgent" shape=ellipse fillcolor="#F3E5F5" color="#7B1FA2"];
+        agent3 [label="🤖 Review\nAgent" shape=ellipse fillcolor="#F3E5F5" color="#7B1FA2"];
+        
+        arch -> sr2;
+        arch -> sr3;
+        arch -> aire;
+        sr2 -> agent1 [style=dashed color="#7B1FA2"];
+        sr3 -> agent2 [style=dashed color="#7B1FA2"];
+        aire -> agent3 [style=dashed color="#7B1FA2"];
+    }
+    
+    // Arrow between clusters
+    transition [label="AI Leverage" shape=plaintext fontname="Helvetica Neue Bold" fontsize=14 fontcolor="#00758F"];
+    m2 -> transition [style=invis];
+    transition -> arch [style=invis];
+    
+    label="Team Structure Evolution: Traditional → Centaur Pod";
+    labelloc=t;
+    fontname="Helvetica Neue Bold";
+    fontsize=16;
+    fontcolor="#1A1A2E";
+}

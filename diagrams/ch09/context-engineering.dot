@@ -1,0 +1,93 @@
+digraph context_engineering {
+    bgcolor="#FAFAFA";
+    pad=0.5;
+    rankdir=TB;
+    nodesep=0.5;
+    ranksep=0.8;
+    
+    node [
+        fontname="Helvetica Neue"
+        fontsize=10
+        style="filled,rounded"
+        shape=box
+        fillcolor="#F0F4F8"
+        color="#2D6A8F"
+        penwidth=1.5
+    ];
+    
+    edge [
+        color="#4A4A4A"
+        penwidth=1.5
+        arrowsize=0.7
+    ];
+    
+    // Context sources
+    subgraph cluster_context {
+        label="Context Sources";
+        labeljust=l;
+        fontname="Helvetica Neue Bold";
+        fontsize=12;
+        fontcolor="#1A1A2E";
+        style="rounded,dashed";
+        color="#00758F";
+        bgcolor="#F8FCFE";
+        
+        repo [label="Repository\nIndex" fillcolor="#E3F2FD" color="#1565C0"];
+        adrs [label="Architecture\nDecision Records" fillcolor="#E3F2FD" color="#1565C0"];
+        rules [label="Project Context\nFiles (.cursorrules)" fillcolor="#E3F2FD" color="#1565C0"];
+        docs [label="API Specs\n& Docs" fillcolor="#E3F2FD" color="#1565C0"];
+        history [label="Conversation\nHistory" fillcolor="#E3F2FD" color="#1565C0"];
+    }
+    
+    // Assembly
+    assembler [
+        label="Context Assembler\n─────────────\n• Relevance ranking\n• Token budget allocation\n• Priority ordering"
+        shape=record
+        fillcolor="#FFF3E0"
+        color="#E65100"
+    ];
+    
+    // Prompt
+    prompt [
+        label="Assembled Prompt\n─────────────\nSystem + Context + Task"
+        fillcolor="#F3E5F5"
+        color="#7B1FA2"
+    ];
+    
+    // LLM
+    llm [
+        label="LLM"
+        shape=ellipse
+        fillcolor="#E8F5E9"
+        color="#2E7D32"
+        fontsize=14
+        fontname="Helvetica Neue Bold"
+    ];
+    
+    // Output
+    output [
+        label="Code Generation\n─────────────\n• Architecture-aware\n• Convention-following\n• Contextually correct"
+        fillcolor="#E8F5E9"
+        color="#2E7D32"
+    ];
+    
+    // Connections
+    repo -> assembler;
+    adrs -> assembler;
+    rules -> assembler;
+    docs -> assembler;
+    history -> assembler;
+    
+    assembler -> prompt;
+    prompt -> llm;
+    llm -> output;
+    
+    // Feedback loop
+    output -> history [style=dashed label="feeds back" fontsize=8 fontcolor="#4A4A4A"];
+    
+    label="Context Engineering Workflow";
+    labelloc=t;
+    fontname="Helvetica Neue Bold";
+    fontsize=16;
+    fontcolor="#1A1A2E";
+}
