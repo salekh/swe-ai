@@ -9,7 +9,7 @@
 \vspace{0.5cm}
 
 \noindent
-Chapter~\ref{ch:agents} covered the conceptual foundations of AI agents: architectures, reasoning paradigms, memory systems, and guardrails. This chapter is about the unglamorous engineering work that transforms a prototype agent into a production system: deterministic scaffolding around probabilistic reasoning, structured error handling for tools that can fail in novel ways, observability for systems whose internal reasoning is opaque, and testing strategies for agents whose behavior is non-deterministic by design.
+Chapter~\ref{ch:building-agents} covered the conceptual foundations of AI agents: architectures, reasoning paradigms, memory systems, and guardrails. This chapter is about the unglamorous engineering work that transforms a prototype agent into a production system: deterministic scaffolding around probabilistic reasoning, structured error handling for tools that can fail in novel ways, observability for systems whose internal reasoning is opaque, and testing strategies for agents whose behavior is non-deterministic by design.
 
 The central thesis of this chapter is that \textbf{production agents are 20\% LLM and 80\% traditional software engineering}. The LLM provides the reasoning capability. Everything else---tool execution, state management, error recovery, observability, cost control, and safety---is conventional (if challenging) engineering. Figure~\ref{fig:agent-skeleton} shows the components of the production agent skeleton.
 

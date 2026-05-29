@@ -654,13 +654,22 @@ class RateLimiter:
         self._lock = threading.Lock()
 
     def allow(self, user_id: str, tokens: int = 1) -> bool:
-        # Check per-user limit first (fail fast)
+        # Check global limit first (non-destructive peek)
         with self._lock:
             user_bucket = self._users[user_id]
-        if not user_bucket.consume(tokens):
+        # Attempt global first --- if global rejects,
+        # user tokens are never deducted.
+        if not self._global.consume(tokens):
             return False
-        # Then check global limit
-        return self._global.consume(tokens)
+        # Global accepted; now check per-user limit.
+        if not user_bucket.consume(tokens):
+            # Refund the global tokens we just consumed.
+            with self._global._lock:
+                self._global._tokens = min(
+                    self._global.capacity,
+                    self._global._tokens + tokens)
+            return False
+        return True
 \end{lstlisting}
 
 \textbf{Interviewer Follow-ups}:
@@ -697,6 +706,7 @@ class CircuitBreaker:
         self._failure_threshold = failure_threshold
         self._recovery_timeout = recovery_timeout
         self._last_failure_time = 0.0
+        self._half_open_permitted = True  # atomic probe flag
         self._lock = threading.Lock()
 
     @property
@@ -706,16 +716,24 @@ class CircuitBreaker:
                 time.monotonic() - self._last_failure_time
                     > self._recovery_timeout):
                 self._state = State.HALF_OPEN
+                self._half_open_permitted = True
             return self._state
 
     def call(self, func, *args, **kwargs):
         """Execute func through the circuit breaker."""
-        current_state = self.state
-
-        if current_state == State.OPEN:
-            raise RuntimeError(
-                f"Circuit OPEN. Retry after "
-                f"{self._recovery_timeout}s.")
+        with self._lock:
+            current_state = self.state
+            if current_state == State.OPEN:
+                raise RuntimeError(
+                    f"Circuit OPEN. Retry after "
+                    f"{self._recovery_timeout}s.")
+            if current_state == State.HALF_OPEN:
+                # Atomic test-and-set: only ONE request
+                # probes the service; others are rejected.
+                if not self._half_open_permitted:
+                    raise RuntimeError(
+                        "Circuit HALF_OPEN: probe in flight.")
+                self._half_open_permitted = False
 
         try:
             result = func(*args, **kwargs)
@@ -1215,8 +1233,9 @@ class SemanticCache:
         self._max_size = max_size
         self._default_ttl = default_ttl
         self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
-        self._embeddings: list[np.ndarray] = []  # parallel list
-        self._keys: list[str] = []
+        # Map key -> index in _emb_matrix for O(1) lookup.
+        self._key_to_idx: dict[str, int] = {}
+        self._emb_list: list[np.ndarray] = []
         self.hits = self.misses = 0
 
     def _cosine_sim(self, a: np.ndarray,
@@ -1229,17 +1248,19 @@ class SemanticCache:
         return a_norm @ b_norms.T
 
     def get(self, query: str) -> str | None:
-        if not self._embeddings:
+        if not self._emb_list:
             self.misses += 1
             return None
         query_emb = self._embed(query)
-        emb_matrix = np.stack(self._embeddings)
+        emb_matrix = np.stack(self._emb_list)
         similarities = self._cosine_sim(query_emb, emb_matrix)
         best_idx = int(np.argmax(similarities))
         best_sim = similarities[best_idx]
 
         if best_sim >= self._threshold:
-            key = self._keys[best_idx]
+            # Reverse-lookup key from index.
+            key = list(self._key_to_idx.keys())[
+                list(self._key_to_idx.values()).index(best_idx)]
             entry = self._cache[key]
             if not entry.is_expired:
                 self._cache.move_to_end(key)  # LRU touch
@@ -1260,15 +1281,24 @@ class SemanticCache:
             embedding=embedding, response=response,
             created_at=time.monotonic(),
             ttl=ttl or self._default_ttl)
+        idx = len(self._emb_list)
         self._cache[query] = entry
-        self._embeddings.append(embedding)
-        self._keys.append(query)
+        self._key_to_idx[query] = idx
+        self._emb_list.append(embedding)
 
     def _evict(self, key: str) -> None:
-        idx = self._keys.index(key)
-        self._keys.pop(idx)
-        self._embeddings.pop(idx)
+        idx = self._key_to_idx.pop(key)
         del self._cache[key]
+        # Swap-and-pop: O(1) removal from embedding list.
+        last_idx = len(self._emb_list) - 1
+        if idx != last_idx:
+            self._emb_list[idx] = self._emb_list[last_idx]
+            # Update the swapped key's index.
+            for k, v in self._key_to_idx.items():
+                if v == last_idx:
+                    self._key_to_idx[k] = idx
+                    break
+        self._emb_list.pop()
 
     @property
     def hit_rate(self) -> float:

@@ -165,7 +165,8 @@ LLM inference costs are a new category of operational expense that requires dedi
 \begin{enumerate}[leftmargin=*]
     \item \textbf{Model routing}: Use the cheapest model that meets quality requirements. Route only complex queries to expensive models.
     \item \textbf{Prompt optimization}: Shorter prompts with higher information density reduce input token costs. Regularly audit prompt length.
-    \item \textbf{Caching}: Semantic caching (Chapter~\ref{ch:app-architecture}) reduces API calls by 20--40\% for repetitive query patterns.
+    \item \textbf{Native prompt caching}: All major providers cache KV-cache states for stable prompt prefixes, giving 50--90\% input token discounts. Structure prompts with stable content (system prompt, few-shot examples) first and variable content (user query) last to maximize cache hits.
+    \item \textbf{Semantic caching}: Application-level semantic caching (Chapter~\ref{ch:app-architecture}) reduces API calls by 20--40\% for repetitive query patterns.
     \item \textbf{Batching}: Combine multiple requests into batch API calls during off-peak hours for non-real-time workloads (50--80\% cost reduction).
     \item \textbf{Self-hosting}: For high-volume, stable workloads, self-hosted open-source models (running on your own GPU infrastructure) can reduce per-token costs by 80--95\% after the initial hardware investment.
 \end{enumerate}

@@ -176,6 +176,7 @@ Production applications increasingly use multiple models for different tasks, ro
 \end{figure}
 
 \subsection{Model Routing Design}
+\label{sec:model-routing}
 
 The economics of model routing are compelling. In a typical production workload:
 
@@ -195,6 +196,22 @@ The architecture of an LLM application is where engineering discipline matters m
 \end{keytakeaway}
 
 
+\subsection{Native Prompt Caching}
+
+One of the most impactful---and underappreciated---optimizations in modern LLM APIs is \textbf{native prompt caching} (also called prefix caching). All major providers now cache the KV-cache states for prompt prefixes that remain stable across requests. If your system prompt, few-shot examples, and tool definitions total 5,000 tokens, and only the user query varies, you pay full price on the first request---but subsequent requests with the same prefix receive a 50--90\% discount on input tokens and 60--80\% lower latency (because the cached KV states skip the prefill phase entirely).
+
+This fundamentally changes the architecture of prompt systems:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Long system prompts are now cheap}: Previously, engineers compressed system prompts to save costs. With prefix caching, you should \emph{invest} in rich, detailed system prompts because the marginal cost of additional prefix tokens approaches zero.
+    \item \textbf{Prompt structure matters}: Place \emph{all} stable content (system prompt, few-shot examples, tool definitions, reference documents) at the \emph{beginning} of the prompt. Place variable content (user query) at the \emph{end}. The cache matches by prefix---any change in the middle invalidates everything after it.
+    \item \textbf{Session continuity}: Multi-turn conversations benefit automatically---the growing conversation history is prefix-cached between turns.
+    \item \textbf{Impact on cost models}: Combined with model routing and semantic caching, prompt caching can reduce per-request costs by 70--90\% for high-volume applications with stable system prompts.
+\end{itemize}
+
+\begin{cautionbox}[Cache Invalidation]
+Prompt caches are ephemeral and provider-managed---you have no explicit control over eviction. In practice, caches persist for 5--15 minutes of inactivity. Design your prompt systems with consistent prefix ordering, and monitor cache hit rates through provider dashboards.
+\end{cautionbox}
 \section{Design Patterns for the Foundation Model Era}
 \label{sec:design-patterns}
 
@@ -240,6 +257,14 @@ Figure~\ref{fig:design-patterns-catalog} shows the complete catalog organized by
 \textbf{Trade-offs}: Dramatically increases systemic reliability (many teams report going from 92\% to 99.5\%+ schema compliance) and abstracts AI messiness from the core application. But it multiplies token costs and latency during error states---each retry is a full LLM round-trip. The \code{max\_retries} bound is critical: without it, a structurally incapable model will burn tokens indefinitely.
 
 \textbf{When to use}: Any production LLM call that returns structured data. This pattern is so fundamental that it should be the \emph{default} interface to any LLM.
+
+\begin{tipbox}[Constrained Decoding: The Preferred First Line]
+Modern providers offer \textbf{constrained decoding} (OpenAI's strict JSON mode, vLLM's guided decoding via XGrammar/Outlines, Anthropic's tool-use schemas) that forces schema compliance \emph{at the logit level}---the tokenizer can only produce valid JSON matching your schema, with zero retries and zero wasted tokens. When available, constrained decoding is strictly superior to the retry loop described above.
+
+The Validator-Corrector Proxy remains essential as a \textbf{fallback layer} for three scenarios: (1) providers or self-hosted models that don't support constrained decoding, (2) complex multi-field business validations that go beyond JSON schema (e.g., ``field A must be greater than field B''), and (3) semantic validations where the output is structurally valid but factually wrong.
+
+\textbf{The recommended production stack}: Constrained decoding as the primary guarantee, with the Validator-Corrector as a retry layer for edge cases that slip through.
+\end{tipbox}
 
 
 \subsection{Pattern 2: The Semantic Circuit Breaker}

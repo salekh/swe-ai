@@ -295,34 +295,194 @@ For every systems design question, structure your answer using ACRES:
 \end{itemize}
 
 
-\section{Questions 18--40: Brief Prompts}
+\section{Questions 18--40: Solution Sketches}
 
-The following questions are presented as brief prompts to practice structuring your approach using the ACRES framework.
+The following questions are presented with concise solution sketches using the ACRES framework. Use them to practice structuring your approach before an interview.
 
 \begin{enumerate}[leftmargin=*]
-    \item[Q18.] Design a plagiarism detection system using embeddings for a university with 100K student submissions per semester
-    \item[Q19.] Design a multilingual chatbot that serves users in 20 languages with a single underlying model
-    \item[Q20.] Design a real-time fraud detection system that uses both ML classifiers and LLM reasoning for complex cases
-    \item[Q21.] Design a document summarization pipeline that processes 1M legal documents into structured summaries
-    \item[Q22.] Design a search system that combines keyword search, semantic search, and LLM-powered query understanding
-    \item[Q23.] Design a CI/CD pipeline for ML models with automated testing, evaluation, and promotion
-    \item[Q24.] Design an A/B testing framework for LLM-powered features with statistical significance testing
-    \item[Q25.] Design a data pipeline that processes and deduplicates a 100TB web crawl for LLM pre-training
-    \item[Q26.] Design a model registry that tracks model lineage, hyperparameters, and evaluation results
-    \item[Q27.] Design a privacy-preserving inference system that processes sensitive medical data without exposing it to a third-party LLM provider
-    \item[Q28.] Design a knowledge graph construction pipeline that extracts entities and relationships from unstructured text at scale
-    \item[Q29.] Design a speech-to-text transcription pipeline that handles 10K concurrent audio streams
-    \item[Q30.] Design a prompt management system that supports versioning, A/B testing, and rollback across 100 features
-    \item[Q31.] Design a multi-modal AI system that answers questions about product images (``What material is this made of?'')
-    \item[Q32.] Design an autonomous coding agent that can implement features from Jira tickets end-to-end
-    \item[Q33.] Design a personalized email generation system for a marketing platform with 10M users
-    \item[Q34.] Design a log analysis system that uses LLMs to identify root causes from production logs
-    \item[Q35.] Design a competitive intelligence system that monitors competitor websites, news, and social media
-    \item[Q36.] Design an LLM-powered data validation pipeline that checks incoming data against business rules expressed in natural language
-    \item[Q37.] Design a federated learning system for training a model across 1,000 hospital sites without sharing patient data
-    \item[Q38.] Design a real-time translation system for a video conferencing platform with 100 concurrent sessions
-    \item[Q39.] Design an AI-powered code migration tool that converts a legacy Java codebase to modern Python
-    \item[Q40.] Design an end-to-end observability platform for AI/ML systems that correlates model quality metrics with infrastructure metrics
+    \item[Q18.] \textbf{Plagiarism Detection via Embeddings} (100K submissions/semester)
+
+    \textit{Key components}: Embed each submission with a code/text embedding model; store in a vector database; for each new submission, ANN search against all prior submissions in the same course. Flag pairs with cosine similarity $>$ 0.92.
+
+    \textit{Critical decision}: Chunk at the paragraph/function level, not whole-document---students plagiarize sections, not entire papers. Use a two-stage pipeline: fast ANN retrieval (top-50), then cross-encoder re-ranking for precision.
+
+    \textit{Bottleneck}: Embedding 100K documents each semester. Batch embed asynchronously at upload time; don't block submission.
+
+    \item[Q19.] \textbf{Multilingual Chatbot} (20 languages, single model)
+
+    \textit{Key components}: Language detection on input (fastText, $<$1ms); single frontier multilingual model (GPT-5.5/Gemini) with language-specific system prompts; translation quality monitoring per language.
+
+    \textit{Critical decision}: Do NOT translate to English $\to$ process $\to$ translate back. Modern multilingual models handle native-language reasoning. Use language-specific few-shot examples in the system prompt, loaded via prompt caching for cost efficiency.
+
+    \textit{Bottleneck}: Low-resource languages (Swahili, Thai) have lower quality. Route these to frontier models; use cheaper models for high-resource languages (English, Spanish).
+
+    \item[Q20.] \textbf{Real-Time Fraud Detection} (ML + LLM hybrid)
+
+    \textit{Key components}: Fast ML classifier (XGBoost, $<$5ms) scores every transaction; high-confidence fraud/legitimate auto-decided; ambiguous cases (10--20\%) routed to LLM for chain-of-thought reasoning with transaction context.
+
+    \textit{Critical decision}: The LLM is NOT in the hot path for most transactions. Only the ``gray zone'' (ML confidence 0.3--0.7) gets expensive LLM analysis. This keeps p99 latency under 100ms for 80\%+ of traffic.
+
+    \textit{Bottleneck}: LLM latency for ambiguous cases. Use streaming + speculative decoding; set a 3-second timeout with fallback to ML-only decision.
+
+    \item[Q21.] \textbf{Legal Document Summarization} (1M documents)
+
+    \textit{Key components}: Document ingestion pipeline (OCR $\to$ layout extraction $\to$ section detection); hierarchical summarization (section $\to$ document $\to$ collection); structured output schema for legal entities, dates, obligations.
+
+    \textit{Critical decision}: Map-reduce summarization---chunk each document into sections, summarize each independently (parallelizable), then synthesize section summaries into a document summary. Never try to fit a full legal document into one context window.
+
+    \textit{Bottleneck}: 1M documents $\times$ \$0.05/doc = \$50K. Use a cheap model (Gemini Flash) for initial summarization; route only complex documents to frontier models.
+
+    \item[Q22.] \textbf{Hybrid Search System} (keyword + semantic + LLM query understanding)
+
+    \textit{Key components}: BM25 for keyword search; dense bi-encoder for semantic search; LLM query rewriter that expands ambiguous queries; Reciprocal Rank Fusion (RRF) to merge results; cross-encoder re-ranker for final top-10.
+
+    \textit{Critical decision}: Use the LLM for query understanding (intent classification, entity extraction, reformulation), not for retrieval itself. The LLM adds $\sim$200ms but dramatically improves recall for complex queries.
+
+    \textit{Bottleneck}: Cross-encoder re-ranking is $O(N)$ per query. Limit to top-50 candidates from the fusion step.
+
+    \item[Q23.] \textbf{ML CI/CD Pipeline}
+
+    \textit{Key components}: Model registry (MLflow/Weights \& Biases); golden evaluation dataset with rubric scoring; automated quality gate (block deployment if any dimension regresses $>$0.3 points); shadow deployment for A/B comparison; canary rollout.
+
+    \textit{Critical decision}: The deployment tuple \code{(app\_version, prompt\_version, model\_version, index\_version)} must be versioned atomically. Prompt changes are deployments---they go through the same evaluation gate as code changes.
+
+    \textit{Bottleneck}: Evaluation latency. Run the evaluation suite in parallel across GPU workers; target $<$15 minutes for the full golden dataset.
+
+    \item[Q24.] \textbf{A/B Testing for LLM Features}
+
+    \textit{Key components}: Traffic splitter (hash user\_id, not prompt); parallel evaluation pipeline running LLM-as-Judge on both variants; statistical significance testing (bootstrap confidence intervals, not t-tests---LLM quality scores are non-Gaussian).
+
+    \textit{Critical decision}: Hash the \code{user\_id} for traffic routing, not the prompt content. MD5-hashing a 100K-token prompt on every request causes CPU blocking; a user\_id hash is $O(1)$ and gives consistent user experience.
+
+    \textit{Bottleneck}: Sample size for statistical power. LLM quality metrics have high variance; you need 2--5$\times$ more samples than traditional A/B tests to reach significance.
+
+    \item[Q25.] \textbf{Web Crawl Deduplication Pipeline} (100TB)
+
+    \textit{Key components}: URL-level dedup (exact match); content-level near-dedup (MinHash + LSH for Jaccard similarity); quality filtering (perplexity scoring, language detection, content classification); output: deduplicated, quality-filtered training corpus.
+
+    \textit{Critical decision}: MinHash with 128 permutations and LSH with 20 bands gives $\sim$0.5 Jaccard threshold for near-duplicate detection. This is the industry standard (CCNet, RefinedWeb).
+
+    \textit{Bottleneck}: 100TB requires distributed processing. Use Spark/Dataflow with 1000+ workers; partition by URL domain for locality.
+
+    \item[Q26.] \textbf{Model Registry}
+
+    \textit{Key components}: Immutable model artifacts with cryptographic hashes; metadata store (hyperparameters, training data version, evaluation scores); lineage graph (which dataset $\to$ which training run $\to$ which model); promotion workflow (dev $\to$ staging $\to$ prod).
+
+    \textit{Critical decision}: Store the evaluation baseline \emph{with} the model artifact, not separately. When deploying, production monitoring compares against the correct baseline automatically.
+
+    \textit{Bottleneck}: Model artifact storage (70B model = 140GB). Use content-addressable storage with deduplication.
+
+    \item[Q27.] \textbf{Privacy-Preserving Medical Inference}
+
+    \textit{Key components}: On-premise inference gateway; PII detection and redaction before any data leaves the facility; self-hosted open-source model (Llama, Mistral) on local GPU infrastructure; audit logging for HIPAA compliance.
+
+    \textit{Critical decision}: Never send raw patient data to a third-party API. Use a local model for the primary workload; for cases requiring frontier model quality, redact PII, send the anonymized query, and re-attach identifiers locally.
+
+    \textit{Bottleneck}: GPU cost for self-hosting. A single 70B model on 2$\times$H100 handles $\sim$50 req/s---sufficient for most hospitals.
+
+    \item[Q28.] \textbf{Knowledge Graph Construction from Text}
+
+    \textit{Key components}: Named Entity Recognition (NER) for entity extraction; LLM-based relation extraction with structured output (subject, predicate, object triples); entity resolution (deduplication of ``IBM'' / ``International Business Machines''); graph database (Neo4j) for storage and querying.
+
+    \textit{Critical decision}: Use constrained decoding to force the LLM to output valid triples matching your ontology schema. Pre-define the relation types; let the LLM extract instances, not invent new relation types.
+
+    \textit{Bottleneck}: Entity resolution across millions of documents. Use embedding-based clustering for candidate generation, then LLM for disambiguation.
+
+    \item[Q29.] \textbf{Speech-to-Text Pipeline} (10K concurrent streams)
+
+    \textit{Key components}: Audio chunking (30-second segments with 5-second overlap); Whisper-large-v3 or equivalent ASR model; GPU inference cluster with continuous batching; downstream: speaker diarization, punctuation restoration, topic segmentation.
+
+    \textit{Critical decision}: Streaming vs. batch. For real-time (calls, meetings), use streaming with 1--2 second chunks. For archival (podcasts, recordings), batch process with longer segments for higher accuracy.
+
+    \textit{Bottleneck}: 10K concurrent streams $\times$ 30-second segments = 333 segments/second. Whisper-large processes $\sim$10 segments/second per GPU. Need $\sim$35 GPUs with load balancing.
+
+    \item[Q30.] \textbf{Prompt Management System} (100 features)
+
+    \textit{Key components}: Prompt registry with semantic versioning; per-feature prompt templates with variable slots; A/B testing infrastructure for prompt variants; rollback capability (revert to previous prompt version in $<$1 minute).
+
+    \textit{Critical decision}: Prompts are configuration, not code---but they must go through the same review and evaluation pipeline as code deployments. Every prompt change triggers the golden evaluation suite.
+
+    \textit{Bottleneck}: Evaluation latency across 100 features. Run evaluations in parallel; cache results by prompt hash.
+
+    \item[Q31.] \textbf{Multi-Modal Product QA}
+
+    \textit{Key components}: Vision-language model (GPT-5.5 Vision, Gemini) for image understanding; product catalog RAG for specifications; structured output for material/color/size extraction; confidence scoring for ``I don't know'' responses.
+
+    \textit{Critical decision}: Pre-process product images to extract visual features (material texture, color histogram) and store as structured metadata. Use this metadata alongside the VLM for grounded answers.
+
+    \textit{Bottleneck}: VLM inference is 5--10$\times$ slower than text-only. Cache image embeddings; only re-process on catalog updates.
+
+    \item[Q32.] \textbf{Autonomous Coding Agent from Jira Tickets}
+
+    \textit{Key components}: Ticket parser (extract requirements, acceptance criteria); codebase indexing (full repo context); agentic loop (plan $\to$ implement $\to$ test $\to$ review); PR creation with diff explanation.
+
+    \textit{Critical decision}: The agent must run the test suite after every code change and self-correct on failure. Use step limits (max 50 reasoning steps) and cost budgets (\$5/ticket) as termination conditions. Never trust the agent's self-assessment of completion.
+
+    \textit{Bottleneck}: Context window for large codebases. Use codebase indexing + retrieval to assemble relevant files; don't try to fit the whole repo in context.
+
+    \item[Q33.] \textbf{Personalized Email Generation} (10M users)
+
+    \textit{Key components}: User segmentation (behavior clusters); per-segment prompt templates with personalization slots; batch generation with cheap models (Gemini Flash); quality sampling (LLM-as-Judge on 5\% of outputs).
+
+    \textit{Critical decision}: Generate emails in batch during off-peak hours using batch API pricing (50--80\% cheaper). Pre-compute and cache; send at scheduled times.
+
+    \textit{Bottleneck}: 10M emails $\times$ \$0.001/email = \$10K per campaign. Use the cheapest model that passes quality threshold.
+
+    \item[Q34.] \textbf{LLM-Powered Log Analysis}
+
+    \textit{Key components}: Log aggregation (ELK/Splunk); anomaly detection (statistical, not LLM) to surface interesting log windows; LLM analysis of anomalous windows for root cause hypothesis; structured output (severity, affected service, probable cause, suggested fix).
+
+    \textit{Critical decision}: The LLM does NOT process all logs. Statistical anomaly detection filters to the 0.1\% of log windows worth analyzing. The LLM adds reasoning and natural-language explanation to already-flagged anomalies.
+
+    \textit{Bottleneck}: Log volume. A typical production system generates TB/day. The anomaly detector must run at ingest speed; the LLM only processes flagged windows.
+
+    \item[Q35.] \textbf{Competitive Intelligence System}
+
+    \textit{Key components}: Web scraper (competitor websites, press releases); social media monitor (Twitter/Reddit API); news aggregator (RSS, Google Alerts); LLM summarizer that produces weekly competitive briefs; change detection (diff competitor pricing pages).
+
+    \textit{Critical decision}: Focus on structured change detection, not free-form summarization. ``Competitor X raised their API price by 15\%'' is actionable; ``Competitor X had an interesting week'' is not.
+
+    \textit{Bottleneck}: Data freshness vs. cost. Scrape daily, summarize weekly, alert on high-impact changes immediately.
+
+    \item[Q36.] \textbf{Natural Language Data Validation}
+
+    \textit{Key components}: Rule parser (convert NL rules to structured validation logic); LLM-as-validator for ambiguous rules; deterministic validators for clear rules (regex, range checks); exception reporting with explanation.
+
+    \textit{Critical decision}: Convert natural language rules into deterministic code wherever possible (``revenue must be positive'' $\to$ \code{assert val > 0}). Use the LLM only for genuinely ambiguous rules that resist formalization.
+
+    \textit{Bottleneck}: Latency per record. Pre-compile NL rules to deterministic validators at rule-creation time, not at validation time.
+
+    \item[Q37.] \textbf{Federated Learning} (1,000 hospitals)
+
+    \textit{Key components}: Local training on each site (no data leaves the hospital); secure aggregation server (encrypted gradient averaging); differential privacy (add calibrated noise to gradients); model versioning and distribution.
+
+    \textit{Critical decision}: Use Secure Aggregation so the central server never sees individual hospital gradients---only the encrypted sum. Add $(\epsilon, \delta)$-differential privacy with $\epsilon = 8$ as the starting point for medical data.
+
+    \textit{Bottleneck}: Straggler hospitals with slow hardware. Use asynchronous federated averaging; don't wait for all 1,000 sites per round.
+
+    \item[Q38.] \textbf{Real-Time Video Translation} (100 sessions)
+
+    \textit{Key components}: Speech-to-text (Whisper, streaming mode); machine translation (dedicated NMT model, not LLM---latency matters); text-to-speech synthesis (target language); audio mixing into video stream.
+
+    \textit{Critical decision}: Use a dedicated NMT model (NLLB, Google Translate API), not an LLM, for translation. NMT gives 50--100ms latency; LLM gives 500--2000ms. For real-time video conferencing, latency is the binding constraint.
+
+    \textit{Bottleneck}: End-to-end latency budget is $\sim$500ms. ASR (200ms) + Translation (100ms) + TTS (200ms) = 500ms. No room for LLM reasoning.
+
+    \item[Q39.] \textbf{Legacy Java to Python Migration Tool}
+
+    \textit{Key components}: Java AST parser (extract class/method structure); dependency graph builder; per-file translation agent (Java $\to$ Python with test generation); integration test runner to verify behavioral equivalence.
+
+    \textit{Critical decision}: Migrate file-by-file in dependency order (leaves first, then dependents). Generate unit tests for each Java file BEFORE migration, run them on the Python output. Behavioral equivalence is the acceptance criterion, not syntactic similarity.
+
+    \textit{Bottleneck}: Large codebases (100K+ files). Parallelize across independent modules; human review for architecture-level decisions (e.g., Java generics $\to$ Python type hints).
+
+    \item[Q40.] \textbf{AI/ML Observability Platform}
+
+    \textit{Key components}: Three monitoring layers---infrastructure (latency, GPU util, token usage), quality (rubric scores on sampled outputs), business (user satisfaction, task completion); anomaly detection engine; incident playbook automation.
+
+    \textit{Critical decision}: Correlate quality metrics with infrastructure metrics. ``Accuracy dropped 0.5 points'' becomes actionable when correlated with ``prompt version changed at 14:30'' or ``model provider updated their endpoint.''
+
+    \textit{Bottleneck}: Quality monitoring at scale requires sampling (5--10\% of traffic through LLM-as-Judge). Design for statistical significance on the sampled subset.
 \end{enumerate}
 
 
