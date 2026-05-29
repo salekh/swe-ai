@@ -1,0 +1,63 @@
+digraph model_routing {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,7", ratio=compress,
+           rankdir=TB, nodesep=0.5, ranksep=0.6, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    // Request
+    req [label="Incoming\nRequest", fillcolor="#FFFDE7", color="#FDD835"];
+    
+    // Classifier
+    classifier [label="Complexity\nClassifier\n(lightweight model\nor heuristic)", fillcolor="#FFF3E0", color="#FFB74D"];
+
+    // Cache check
+    cache [label="Semantic\nCache\nLookup", fillcolor="#E3F2FD", color="#64B5F6", shape=cylinder];
+
+    // Three model tiers
+    subgraph cluster_fast {
+        style="rounded"; color="#81C784"; bgcolor="#E8F5E9";
+        label="Tier 1: Fast"; fontcolor="#2E7D32"; fontsize=10;
+        fast [label="Gemini 3.5 Flash\nor Gemini 3.5 Flash\n~$0.15/1M tokens\nLatency: 50ms", fillcolor="#C8E6C9", color="#81C784"];
+    }
+
+    subgraph cluster_standard {
+        style="rounded"; color="#64B5F6"; bgcolor="#E3F2FD";
+        label="Tier 2: Standard"; fontcolor="#1565C0"; fontsize=10;
+        standard [label="GPT-5.5\nor Claude Opus 4.8\n~$2.50/1M tokens\nLatency: 200ms", fillcolor="#BBDEFB", color="#64B5F6"];
+    }
+
+    subgraph cluster_premium {
+        style="rounded"; color="#BA68C8"; bgcolor="#F3E5F5";
+        label="Tier 3: Reasoning"; fontcolor="#7B1FA2"; fontsize=10;
+        premium [label="o4-mini\nor GPT-5.5\n~$15/1M tokens\nLatency: 5-30s", fillcolor="#E1BEE7", color="#BA68C8"];
+    }
+
+    // Output processing
+    output [label="Output\nValidation &\nGuardrails", fillcolor="#ECEFF1", color="#B0BEC5"];
+
+    // Fallback
+    fallback [label="Fallback:\nRetry with\nhigher tier", fillcolor="#FCE4EC", color="#E57373"];
+
+    // Response
+    response [label="Response\nto Client", fillcolor="#E8F5E9", color="#81C784"];
+
+    // Flow
+    req -> cache;
+    cache -> response [label="cache hit", color="#2E7D32", style=dashed];
+    cache -> classifier [label="cache miss"];
+    
+    classifier -> fast [label="simple\n~70% of requests", color="#2E7D32"];
+    classifier -> standard [label="moderate\n~25%", color="#1565C0"];
+    classifier -> premium [label="complex\n~5%", color="#7B1FA2"];
+
+    fast -> output;
+    standard -> output;
+    premium -> output;
+    
+    output -> response [label="pass"];
+    output -> fallback [label="quality\ncheck fails", color="#C4362A"];
+    fallback -> standard [style=dashed, color="#C4362A"];
+    fallback -> premium [style=dashed, color="#C4362A"];
+}

@@ -1,0 +1,72 @@
+digraph llm_inference {
+    rankdir=TB;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10];
+    edge [fontname="Helvetica", fontsize=8];
+    
+    // Request flow
+    requests [label="100K req/s", shape=ellipse, fillcolor="#FFF3E0"];
+    
+    subgraph cluster_lb {
+        label="Load Balancer";
+        style=dashed;
+        color="#90CAF9";
+        lb [label="Least-Outstanding\nRequests Router", fillcolor="#BBDEFB"];
+    }
+    
+    // Inference nodes
+    subgraph cluster_fleet {
+        label="GPU Fleet (8×H100 per node)";
+        style=filled;
+        color="#E8EAF6";
+        fillcolor="#E8EAF6";
+        
+        subgraph cluster_node1 {
+            label="Node 1";
+            style=dashed;
+            color="#9FA8DA";
+            batcher1 [label="Continuous\nBatcher", fillcolor="#C5CAE9"];
+            kv1 [label="KV-Cache\nManager\n(PagedAttention)", fillcolor="#FFF9C4"];
+            replica1a [label="Replica A\n70B FP16\n(2 GPU TP)", fillcolor="#C8E6C9"];
+            replica1b [label="Replica B\n70B FP16\n(2 GPU TP)", fillcolor="#C8E6C9"];
+            draft1 [label="Draft Model\n7B (1 GPU)\nSpeculative", fillcolor="#FFCCBC"];
+        }
+        
+        subgraph cluster_node2 {
+            label="Node 2";
+            style=dashed;
+            color="#9FA8DA";
+            batcher2 [label="Continuous\nBatcher", fillcolor="#C5CAE9"];
+            kv2 [label="KV-Cache\nManager", fillcolor="#FFF9C4"];
+            replica2a [label="Replica A\n70B INT8\n(1 GPU)", fillcolor="#DCEDC8"];
+            replica2b [label="Replica B\n70B INT8\n(1 GPU)", fillcolor="#DCEDC8"];
+        }
+        
+        nodeN [label="... Node N", fillcolor="#E8EAF6"];
+    }
+    
+    // Health + scaling
+    health [label="Health Monitor\n• GPU util\n• KV-cache util\n• Queue depth", fillcolor="#FFE0B2"];
+    autoscale [label="Autoscaler\n(queue-depth\nbased)", fillcolor="#FFE0B2"];
+    
+    response [label="Streaming\nResponse", shape=ellipse, fillcolor="#FFF3E0"];
+    
+    // Back-of-envelope
+    boe [label="Back-of-Envelope:\n70B × 2B = 140 GB\n1 H100 = 80 GB HBM3\nMin 2 GPU/replica (TP)\nKV-cache: ~10 GB/req @ 4K ctx\nINT8: halves mem, 2× throughput", shape=note, fillcolor="#FFFDE7"];
+    
+    // Edges
+    requests -> lb;
+    lb -> batcher1;
+    lb -> batcher2;
+    lb -> nodeN [style=dashed];
+    batcher1 -> kv1;
+    kv1 -> replica1a;
+    kv1 -> replica1b;
+    draft1 -> replica1a [label="verify", style=dashed];
+    batcher2 -> kv2;
+    kv2 -> replica2a;
+    kv2 -> replica2b;
+    replica1a -> response;
+    replica2a -> response;
+    health -> autoscale;
+    autoscale -> lb [style=dashed, label="scale signal"];
+}

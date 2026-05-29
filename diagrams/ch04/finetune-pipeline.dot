@@ -1,0 +1,60 @@
+digraph finetune_pipeline {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,7", ratio=compress,
+           rankdir=TB, nodesep=0.4, ranksep=0.5, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Stage 1: Dataset
+    subgraph cluster_data {
+        style="rounded"; color="#00758F"; bgcolor="#E0F2F1";
+        label="Stage 1: Dataset Preparation (60% of effort)"; fontcolor="#00758F"; fontsize=12;
+        
+        raw [label="Raw Data Sources\n• Production logs\n• Expert annotations\n• Synthetic generation", fillcolor="#B2DFDB", color="#00897B"];
+        quality [label="Quality Checks\n• No refusal patterns\n• Consistent formatting\n• Balanced categories\n• Matched code blocks", fillcolor="#B2DFDB", color="#00897B"];
+        format [label="Chat Template\n• System / User / Assistant\n• Model-specific tokens\n• 500+ curated examples", fillcolor="#B2DFDB", color="#00897B"];
+        
+        raw -> quality -> format;
+    }
+
+    // Stage 2: Training  
+    subgraph cluster_train {
+        style="rounded"; color="#7B1FA2"; bgcolor="#F3E5F5";
+        label="Stage 2: Training"; fontcolor="#7B1FA2"; fontsize=12;
+        
+        config [label="Configuration\n• LoRA: rank=16, α=32\n• QLoRA: 4-bit base + 16-bit adapters\n• lr=2e-4, warmup 10%\n• bf16 precision", fillcolor="#E1BEE7", color="#BA68C8"];
+        train [label="Training Loop\n• 3-5 epochs max\n• Eval every 100 steps\n• Early stopping on\n  validation loss", fillcolor="#E1BEE7", color="#BA68C8"];
+        
+        config -> train;
+    }
+
+    // Stage 3: Evaluation
+    subgraph cluster_eval {
+        style="rounded"; color="#F9A825"; bgcolor="#FFFDE7";
+        label="Stage 3: Evaluation-Driven Development"; fontcolor="#E65100"; fontsize=12;
+        
+        eval [label="Evaluation Suite\n• Format compliance\n• Accuracy vs. reference\n• Relevance (LLM judge)\n• Category breakdown", fillcolor="#FFF9C4", color="#FBC02D"];
+        compare [label="Compare vs Baseline\n• Base model (zero-shot)\n• Base model (few-shot)\n• Previous fine-tune\n• Must beat ALL three", fillcolor="#FFF9C4", color="#FBC02D"];
+        
+        eval -> compare;
+    }
+
+    // Stage 4: Deployment
+    subgraph cluster_deploy {
+        style="rounded"; color="#2E7D32"; bgcolor="#E8F5E9";
+        label="Stage 4: Production Deployment"; fontcolor="#2E7D32"; fontsize=12;
+        
+        quant [label="Quantization\nGPTQ / AWQ (GPU)\nGGUF (CPU/edge)", fillcolor="#C8E6C9", color="#81C784"];
+        serve [label="Serving\nvLLM (PagedAttention)\nor TensorRT-LLM\n+ LoRA hot-swap", fillcolor="#C8E6C9", color="#81C784"];
+        monitor [label="Monitor\n• Drift detection\n• Quality sampling\n• Cost tracking", fillcolor="#C8E6C9", color="#81C784"];
+        
+        quant -> serve -> monitor;
+    }
+
+    // Flow
+    format -> config;
+    train -> eval;
+    compare -> quant [label="passes\nall checks"];
+    compare -> raw [label="fails → iterate\non dataset", style=dashed, color="#C4362A"];
+}

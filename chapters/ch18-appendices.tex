@@ -1,0 +1,176 @@
+\chapter{Appendices}
+\label{ch:appendices}
+
+\section{Appendix A: Model Quick Reference (May 2026)}
+
+\begin{table}[htbp]
+\centering
+\caption{Frontier model comparison as of May 2026}
+\label{tab:model-comparison}
+\begin{tabularx}{\textwidth}{p{2.5cm}p{1.5cm}p{1.5cm}p{2cm}X}
+\toprule
+\textbf{Model} & \textbf{Context} & \textbf{Cost (1M input)} & \textbf{Best For} & \textbf{Notes} \\
+\midrule
+GPT-5.5 & 256K & \$12.00 & Complex reasoning, structured output & Most reliable structured output compliance \\
+\midrule
+Claude Opus 4.8 & 500K & \$15.00 & Long documents, nuanced analysis & Best for very long context tasks \\
+\midrule
+Gemini Pro 3.1 & 1M & \$7.00 & Multimodal, large codebases & Native image/video understanding \\
+\midrule
+Gemini 3.5 Flash & 1M & \$0.15 & High volume, cost-sensitive & Best cost/quality ratio for production \\
+\midrule
+LLaMA 4 405B & 128K & Self-host & Privacy-sensitive, on-prem & Open weights, no API dependency \\
+\midrule
+Mistral Large 3 & 128K & \$3.00 & European data residency & Strong multilingual performance \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Selection heuristic}: Start with Gemini 3.5 Flash for cost efficiency. Upgrade to a frontier model (GPT-5.5, Claude Opus 4.8, or Gemini Pro 3.1) only for tasks where Flash's quality is insufficient. Use LLaMA 4 for privacy-sensitive or on-premises workloads. Always evaluate on your specific task before committing.
+
+
+\section{Appendix B: Recommended Reading}
+
+\subsection{Foundational Textbooks}
+
+\begin{itemize}[leftmargin=*]
+    \item \textit{Designing Data-Intensive Applications} by Martin Kleppmann --- The definitive guide to distributed systems. Essential background for anyone building AI infrastructure.
+    \item \textit{Software Engineering at Google} by Winters, Manshreck, Wright --- Engineering practices at scale. Our treatment of evaluation borrows heavily from Google's approach to testing.
+    \item \textit{Deep Learning} by Goodfellow, Bengio, Courville --- The standard reference for neural network theory. Chapters on optimization and regularization are directly relevant to fine-tuning.
+\end{itemize}
+
+\subsection{LLM-Specific Resources}
+
+\begin{itemize}[leftmargin=*]
+    \item \textit{Attention Is All You Need} (Vaswani et al., 2017) --- The original transformer paper. Still the best starting point for understanding the architecture.
+    \item \textit{Scaling Laws for Neural Language Models} (Kaplan et al., 2020) --- Establishes the empirical relationships between model size, data, and performance.
+    \item \textit{Training Compute-Optimal Large Language Models} (Hoffmann et al., 2022) --- The ``Chinchilla'' paper that changed how models are scaled.
+    \item \textit{Constitutional AI} (Bai et al., 2022) --- Anthropic's approach to AI alignment using principles rather than human labels.
+    \item \textit{ReAct: Synergizing Reasoning and Acting} (Yao et al., 2022) --- The reasoning paradigm that launched practical AI agents.
+    \item \textit{Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks} (Lewis et al., 2020) --- The original RAG paper.
+\end{itemize}
+
+\subsection{Engineering Blog Posts}
+
+\begin{itemize}[leftmargin=*]
+    \item Anthropic: ``Building effective agents'' (2024) --- Practical patterns for production agents
+    \item OpenAI: ``A practical guide to building agents'' (2025) --- Agent design patterns and failure modes
+    \item Google: ``Agents'' white paper (2025) --- MCP/A2A protocols and multi-agent coordination
+    \item Stripe: ``LLMs in production'' --- Hybrid approach to fraud detection with LLMs
+    \item LinkedIn: ``Building AI features at scale'' --- RAG and evaluation infrastructure
+\end{itemize}
+
+
+\section{Appendix C: Tool and Framework Reference}
+
+\subsection{LLM Frameworks}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{LangChain / LangGraph}: The most widely used orchestration framework. Best for: complex chains and agent workflows with graph-based state management.
+    \item \textbf{LlamaIndex}: Specialized for RAG pipelines. Best for: document ingestion, indexing, and retrieval.
+    \item \textbf{Semantic Kernel}: Microsoft's SDK. Best for: enterprise Azure integrations.
+    \item \textbf{Haystack}: By deepset. Best for: end-to-end RAG with strong evaluation and annotation support.
+\end{itemize}
+
+\subsection{Vector Databases}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{pgvector}: PostgreSQL extension. Good for $<$1M vectors and teams already on PostgreSQL.
+    \item \textbf{Pinecone}: Managed service. Fast setup, good performance, vendor lock-in.
+    \item \textbf{Weaviate}: Open-source with hybrid search. Good for multi-modal use cases.
+    \item \textbf{Qdrant}: Open-source with strong filtering. Good for on-premises deployments.
+    \item \textbf{ChromaDB}: Lightweight. Good for prototyping. Not recommended for production.
+\end{itemize}
+
+\subsection{Evaluation Tools}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Braintrust}: Platform for LLM evaluation with dataset management and scoring.
+    \item \textbf{Promptfoo}: Open-source prompt testing and evaluation.
+    \item \textbf{Ragas}: Framework for evaluating RAG pipelines (faithfulness, context relevance).
+    \item \textbf{DeepEval}: Open-source framework for LLM evaluation with 14+ metrics.
+\end{itemize}
+
+\subsection{Model Serving}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{vLLM}: High-throughput serving with PagedAttention. The default for self-hosted models.
+    \item \textbf{TGI}: Hugging Face's production server. Good integration with the HF ecosystem.
+    \item \textbf{TensorRT-LLM}: NVIDIA's optimized inference. Best latency on NVIDIA hardware.
+    \item \textbf{Ollama}: Local model running. Best for development and experimentation.
+\end{itemize}
+
+
+\section{Appendix D: Glossary}
+
+\begin{description}[leftmargin=1.5cm, labelwidth=1.3cm]
+    \item[Agent] An AI system that autonomously plans, uses tools, and takes actions to achieve a goal
+    \item[A2A] Agent-to-Agent protocol---Google's open protocol for inter-agent communication
+    \item[BPE] Byte Pair Encoding---the dominant subword tokenization algorithm
+    \item[CAI] Constitutional AI---alignment technique using principles rather than human labels
+    \item[Chain-of-Thought] Prompting technique that asks the model to show its reasoning steps
+    \item[DPO] Direct Preference Optimization---a simpler alternative to RLHF for alignment
+    \item[Embedding] A dense vector representation of text in a high-dimensional space
+    \item[Few-Shot] Providing examples in the prompt to guide the model's output format
+    \item[Fine-Tuning] Adapting a pre-trained model to a specific task using task-specific data
+    \item[Golden Dataset] A curated, versioned evaluation dataset used as the ground truth for quality measurement
+    \item[Guardrails] Safety mechanisms that constrain AI system behavior within acceptable bounds
+    \item[Hallucination] When an AI model generates information that is not grounded in its training data or provided context
+    \item[HNSW] Hierarchical Navigable Small World---the dominant algorithm for approximate nearest neighbor search
+    \item[KV-Cache] Key-Value cache---stored attention computations reused during autoregressive generation
+    \item[LoRA] Low-Rank Adaptation---parameter-efficient fine-tuning method
+    \item[MCP] Model Context Protocol---Anthropic's open protocol for connecting LLMs to tools
+    \item[MoE] Mixture of Experts---architecture that routes tokens to specialized sub-networks
+    \item[PEFT] Parameter-Efficient Fine-Tuning---umbrella term for methods like LoRA and QLoRA
+    \item[Prompt Injection] An adversarial attack that manipulates an AI system by embedding malicious instructions in its input
+    \item[RAG] Retrieval-Augmented Generation---augmenting LLM generation with retrieved documents
+    \item[ReAct] Reasoning + Acting---a paradigm where the model interleaves reasoning with tool use
+    \item[RLHF] Reinforcement Learning from Human Feedback---aligning models with human preferences
+    \item[Rubric] A multi-dimensional scoring framework with anchored definitions for evaluating AI outputs
+    \item[SFT] Supervised Fine-Tuning---training on (instruction, response) pairs
+    \item[SLO] Service Level Objective---a target value for a service metric (availability, latency, quality)
+    \item[Temperature] A parameter controlling the randomness of model outputs (0 = deterministic, $>$1 = creative)
+    \item[Tokenization] The process of splitting text into subword units that the model processes
+    \item[Zero-Shot] Using a model without task-specific examples; relying on instructions alone
+\end{description}
+
+
+\section{Appendix E: Evaluation Rubric Templates}
+
+\subsection{General-Purpose RAG Rubric}
+
+\begin{table}[htbp]
+\centering
+\caption{RAG evaluation rubric template}
+\label{tab:rag-rubric}
+\begin{tabularx}{\textwidth}{p{2cm}p{1cm}X}
+\toprule
+\textbf{Dimension} & \textbf{Weight} & \textbf{Level 5 Anchor} \\
+\midrule
+Groundedness & 0.35 & Every claim is directly supported by the retrieved documents. No fabricated information. \\
+Completeness & 0.25 & Addresses all parts of the question, including relevant caveats and edge cases. \\
+Relevance & 0.20 & Precisely scoped to the question. No tangential content or filler. \\
+Clarity & 0.10 & Well-structured, concise, and easy to understand. Uses appropriate terminology. \\
+Citation & 0.10 & References specific source documents. Inline citations where applicable. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Customer Support Chatbot Rubric}
+
+\begin{table}[htbp]
+\centering
+\caption{Customer support chatbot evaluation rubric template}
+\label{tab:cs-rubric}
+\begin{tabularx}{\textwidth}{p{2cm}p{1cm}X}
+\toprule
+\textbf{Dimension} & \textbf{Weight} & \textbf{Level 5 Anchor} \\
+\midrule
+Accuracy & 0.30 & Solution is correct and actionable. No hallucinated steps or features. \\
+Empathy & 0.20 & Acknowledges the customer's frustration. Tone is warm and professional. \\
+Actionability & 0.20 & Provides clear, step-by-step instructions that the customer can follow immediately. \\
+Completeness & 0.15 & Addresses the full scope of the issue, including related problems the customer might encounter. \\
+Escalation & 0.15 & Correctly identifies when human escalation is needed and provides a smooth handoff. \\
+\bottomrule
+\end{tabularx}
+\end{table}

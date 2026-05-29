@@ -1,0 +1,53 @@
+digraph training_pipeline {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,3", ratio=compress,
+           rankdir=LR, nodesep=0.5, ranksep=0.8, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.15,0.08"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Data sources
+    subgraph cluster_sources {
+        style="rounded,dashed"; color="#B0BEC5"; bgcolor="#FAFAFA";
+        label="Data Sources"; fontcolor="#607D8B";
+        
+        web [label="Common\nCrawl", fillcolor="#ECEFF1", color="#B0BEC5"];
+        books [label="Books", fillcolor="#ECEFF1", color="#B0BEC5"];
+        code [label="GitHub\nCode", fillcolor="#ECEFF1", color="#B0BEC5"];
+        wiki [label="Wikipedia", fillcolor="#ECEFF1", color="#B0BEC5"];
+        arxiv [label="ArXiv", fillcolor="#ECEFF1", color="#B0BEC5"];
+    }
+
+    // Processing
+    subgraph cluster_process {
+        style="rounded,dashed"; color="#FFB74D"; bgcolor="#FFF8E1";
+        label="Data Processing Pipeline"; fontcolor="#E65100";
+        
+        lang [label="Language\nIdentification", fillcolor="#FFF3E0", color="#FFB74D"];
+        quality [label="Quality\nFiltering", fillcolor="#FFF3E0", color="#FFB74D"];
+        dedup [label="Deduplication\n(MinHash LSH)", fillcolor="#FFF3E0", color="#FFB74D"];
+        safety [label="Content\nFiltering", fillcolor="#FFF3E0", color="#FFB74D"];
+        tokenize [label="Tokenization\n(BPE)", fillcolor="#FFF3E0", color="#FFB74D"];
+    }
+
+    // Output
+    subgraph cluster_output {
+        style="rounded,dashed"; color="#81C784"; bgcolor="#F1F8E9";
+        label="Training"; fontcolor="#2E7D32";
+        
+        corpus [label="Training\nCorpus\n(~15T tokens)", fillcolor="#E8F5E9", color="#81C784", shape=cylinder];
+        sampler [label="Data\nSampler\n(mixing ratios)", fillcolor="#E8F5E9", color="#81C784"];
+        train [label="Distributed\nTraining\nLoop", fillcolor="#C8E6C9", color="#66BB6A"];
+    }
+
+    // Edges
+    web -> lang; books -> lang; code -> lang; wiki -> lang; arxiv -> lang;
+    lang -> quality -> dedup -> safety -> tokenize;
+    tokenize -> corpus;
+    corpus -> sampler -> train;
+
+    // Data sizes (annotations)
+    edge [fontsize=8, color="#90A4AE", style=dashed];
+    web -> lang [label="~100TB"];
+    tokenize -> corpus [label="~5TB tokenized"];
+}

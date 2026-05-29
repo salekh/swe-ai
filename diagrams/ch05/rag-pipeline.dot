@@ -1,0 +1,40 @@
+digraph rag_pipeline {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,4", ratio=compress,
+           rankdir=LR, nodesep=0.5, ranksep=0.7, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    // Ingestion path (top)
+    subgraph cluster_ingest {
+        style="rounded,dashed"; color="#B0BEC5"; bgcolor="#FAFAFA";
+        label="Offline: Document Ingestion"; fontcolor="#607D8B";
+        
+        docs [label="Documents\n(PDF, HTML, MD)", fillcolor="#ECEFF1", color="#B0BEC5"];
+        chunk [label="Chunking\n(512-1024 tokens)", fillcolor="#FFF3E0", color="#FFB74D"];
+        embed_doc [label="Embedding\nModel", fillcolor="#F3E5F5", color="#BA68C8"];
+        vectordb [label="Vector\nDatabase", fillcolor="#E3F2FD", color="#64B5F6", shape=cylinder];
+        
+        docs -> chunk -> embed_doc -> vectordb;
+    }
+
+    // Query path (bottom)
+    subgraph cluster_query {
+        style="rounded,dashed"; color="#00758F"; bgcolor="#E0F2F1";
+        label="Online: Query Pipeline"; fontcolor="#00758F";
+        
+        query [label="User\nQuery", fillcolor="#FFFDE7", color="#FDD835"];
+        embed_q [label="Embed\nQuery", fillcolor="#F3E5F5", color="#BA68C8"];
+        retrieve [label="Retrieve\nTop-K", fillcolor="#E3F2FD", color="#64B5F6"];
+        rerank [label="Re-Rank\n(Cross-Encoder)", fillcolor="#FFF3E0", color="#FFB74D"];
+        context [label="Assemble\nContext", fillcolor="#E8F5E9", color="#81C784"];
+        llm [label="LLM\nGenerate", fillcolor="#F3E5F5", color="#BA68C8"];
+        answer [label="Grounded\nResponse", fillcolor="#E8F5E9", color="#81C784"];
+        
+        query -> embed_q -> retrieve -> rerank -> context -> llm -> answer;
+    }
+
+    // Connection between ingestion and query
+    vectordb -> retrieve [label="ANN search", color="#64B5F6", style=dashed];
+}

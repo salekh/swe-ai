@@ -1,0 +1,81 @@
+digraph canonical_stack {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,5", ratio=compress,
+           rankdir=TB, nodesep=0.5, ranksep=0.5, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    // Layer 1: Request handling
+    subgraph cluster_l1 {
+        style="rounded"; color="#FDD835"; bgcolor="#FFFDE7";
+        label="① Request Handling"; fontcolor="#F57F17"; fontsize=10;
+        
+        auth [label="Auth &\nRate Limiting", fillcolor="#FFF9C4", color="#FDD835"];
+        validate [label="Input\nValidation", fillcolor="#FFF9C4", color="#FDD835"];
+        classify [label="Request\nClassification", fillcolor="#FFF9C4", color="#FDD835"];
+    }
+
+    // Layer 2: Context Assembly
+    subgraph cluster_l2 {
+        style="rounded"; color="#64B5F6"; bgcolor="#E3F2FD";
+        label="② Context Assembly"; fontcolor="#1565C0"; fontsize=10;
+        
+        rag [label="RAG\nRetrieval", fillcolor="#BBDEFB", color="#64B5F6"];
+        history [label="Conversation\nHistory", fillcolor="#BBDEFB", color="#64B5F6"];
+        tools_ctx [label="Tool\nResults", fillcolor="#BBDEFB", color="#64B5F6"];
+    }
+
+    // Layer 3: Prompt Construction
+    subgraph cluster_l3 {
+        style="rounded"; color="#FFB74D"; bgcolor="#FFF3E0";
+        label="③ Prompt Construction"; fontcolor="#E65100"; fontsize=10;
+        
+        template [label="Template\nSelection", fillcolor="#FFE0B2", color="#FFB74D"];
+        fewshot [label="Few-Shot\nExamples", fillcolor="#FFE0B2", color="#FFB74D"];
+        assemble [label="Prompt\nAssembly", fillcolor="#FFE0B2", color="#FFB74D"];
+    }
+
+    // Layer 4: Model Interaction
+    subgraph cluster_l4 {
+        style="rounded"; color="#BA68C8"; bgcolor="#F3E5F5";
+        label="④ Model Interaction"; fontcolor="#7B1FA2"; fontsize=10;
+        
+        router [label="Model\nRouter", fillcolor="#E1BEE7", color="#BA68C8"];
+        cache [label="Semantic\nCache", fillcolor="#E1BEE7", color="#BA68C8"];
+        llm_call [label="LLM API\nCall", fillcolor="#CE93D8", color="#9C27B0"];
+    }
+
+    // Layer 5: Output Processing
+    subgraph cluster_l5 {
+        style="rounded"; color="#81C784"; bgcolor="#E8F5E9";
+        label="⑤ Output Processing"; fontcolor="#2E7D32"; fontsize=10;
+        
+        parse [label="Parse &\nValidate", fillcolor="#C8E6C9", color="#81C784"];
+        guard [label="Guardrails\n& Safety", fillcolor="#C8E6C9", color="#81C784"];
+        format [label="Format\nResponse", fillcolor="#C8E6C9", color="#81C784"];
+    }
+
+    // Layer 6: Observability
+    subgraph cluster_l6 {
+        style="rounded"; color="#90A4AE"; bgcolor="#ECEFF1";
+        label="⑥ Observability"; fontcolor="#455A64"; fontsize=10;
+        
+        log [label="Logging &\nTracing", fillcolor="#CFD8DC", color="#90A4AE"];
+        eval [label="Quality\nEvaluation", fillcolor="#CFD8DC", color="#90A4AE"];
+        cost [label="Cost\nTracking", fillcolor="#CFD8DC", color="#90A4AE"];
+    }
+
+    // Flow
+    auth -> validate -> classify;
+    classify -> rag; classify -> history; classify -> tools_ctx;
+    rag -> template; history -> template; tools_ctx -> template;
+    template -> fewshot -> assemble;
+    assemble -> router -> cache -> llm_call;
+    llm_call -> parse -> guard -> format;
+    
+    // Observability touches everything
+    format -> log [style=dashed, color="#90A4AE"];
+    llm_call -> cost [style=dashed, color="#90A4AE"];
+    format -> eval [style=dashed, color="#90A4AE"];
+}

@@ -1,0 +1,69 @@
+digraph mcp_a2a {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,7", ratio=compress,
+           rankdir=TB, nodesep=0.4, ranksep=0.5, pad=0.3, compound=true];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // ======== MCP Layer ========
+    subgraph cluster_mcp {
+        style="rounded"; color="#00758F"; bgcolor="#E0F2F1";
+        label="Model Context Protocol (MCP)\nStandard interface for tools and context"; fontcolor="#00758F"; fontsize=12;
+        
+        mcp_agent [label="AI Agent\n(any framework)", fillcolor="#B2DFDB", color="#00897B"];
+        mcp_client [label="MCP Client\n(built into agent)", fillcolor="#FFFDE7", color="#F9A825"];
+        
+        subgraph cluster_servers {
+            style="rounded"; color="#00897B"; bgcolor="#B2DFDB";
+            label="MCP Servers (plug-and-play)"; fontcolor="#00897B"; fontsize=10;
+            
+            srv_git [label="Git\nServer", fillcolor="white", color="#00897B", fontsize=10];
+            srv_db [label="Database\nServer", fillcolor="white", color="#00897B", fontsize=10];
+            srv_search [label="Search\nServer", fillcolor="white", color="#00897B", fontsize=10];
+            srv_custom [label="Custom\nInternal\nAPIs", fillcolor="white", color="#00897B", fontsize=10];
+        }
+        
+        mcp_agent -> mcp_client;
+        mcp_client -> srv_git [label="JSON-RPC"];
+        mcp_client -> srv_db [label="JSON-RPC"];
+        mcp_client -> srv_search [label="JSON-RPC"];
+        mcp_client -> srv_custom [label="JSON-RPC"];
+        
+        mcp_note [label="MCP provides: Tools, Resources (context), Prompts (templates)\nOne protocol, any tool vendor, any agent framework",
+                  shape=none, fillcolor=white, color=white, fontsize=9, fontcolor="#00758F"];
+    }
+    
+    // ======== Skills Layer ========
+    subgraph cluster_skills {
+        style="rounded"; color="#7B1FA2"; bgcolor="#F3E5F5";
+        label="Skills & Plugins\nReusable capability bundles"; fontcolor="#7B1FA2"; fontsize=12;
+        
+        skill_def [label="Skill Definition\n• SKILL.md (instructions)\n• scripts/ (helpers)\n• examples/ (patterns)", fillcolor="#E1BEE7", color="#BA68C8"];
+        plugin [label="Plugin Bundle\n• Multiple skills\n• Agent definitions\n• Config (plugin.json)", fillcolor="#E1BEE7", color="#BA68C8"];
+        agent_compose [label="Agent at Runtime\nloads relevant skills\nbased on task context", fillcolor="#FFFDE7", color="#F9A825"];
+        
+        skill_def -> plugin [label="grouped\ninto"];
+        plugin -> agent_compose [label="loaded\nby"];
+    }
+    
+    // ======== A2A Layer ========
+    subgraph cluster_a2a {
+        style="rounded"; color="#C4362A"; bgcolor="#FCE4EC";
+        label="Agent-to-Agent Protocol (A2A)\nInter-agent communication standard"; fontcolor="#C4362A"; fontsize=12;
+        
+        a2a_agent1 [label="Agent A\n(planning)", fillcolor="#FFCDD2", color="#E57373"];
+        a2a_agent2 [label="Agent B\n(coding)", fillcolor="#FFCDD2", color="#E57373"];
+        a2a_agent3 [label="Agent C\n(testing)", fillcolor="#FFCDD2", color="#E57373"];
+        
+        a2a_bus [label="A2A Protocol\n• Agent Cards (capability discovery)\n• Task lifecycle (submit/status/result)\n• Streaming artifacts\n• Push notifications", fillcolor="#FFFDE7", color="#F9A825", fontsize=10];
+        
+        a2a_agent1 -> a2a_bus;
+        a2a_agent2 -> a2a_bus;
+        a2a_agent3 -> a2a_bus;
+    }
+
+    // Cross-layer connections
+    mcp_agent -> agent_compose [label="uses skills\nfor capabilities", style=dashed, lhead=cluster_skills, color="#7B1FA2"];
+    agent_compose -> a2a_bus [label="delegates to\nother agents", style=dashed, lhead=cluster_a2a, color="#C4362A"];
+}

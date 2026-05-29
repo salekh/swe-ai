@@ -1,0 +1,51 @@
+digraph rubric_testing {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,6!", ratio=fill,
+           rankdir=TB, nodesep=0.35, ranksep=0.45, pad=0.3, compound=true];
+    node  [fontname="Helvetica Neue", fontsize=10, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Test case
+    test [label="Test Case\nInput + Expected Behavior\n(not exact output)", fillcolor="#FFFDE7", color="#FBC02D", fontsize=11, penwidth=2];
+    
+    response [label="LLM Response\n(actual output)", fillcolor="#E3F2FD", color="#42A5F5", fontsize=11];
+
+    // Rubric dimensions
+    subgraph cluster_rubric {
+        style="rounded"; color="#7B1FA2"; bgcolor="#F3E5F5"; penwidth=2;
+        label="Evaluation Rubric (scored independently)"; fontcolor="#7B1FA2"; fontsize=12;
+        
+        r1 [label="Factual Accuracy (1-5)\n1: Major factual errors\n2: Some inaccuracies\n3: Mostly correct\n4: Accurate, minor omissions\n5: Fully accurate + sourced", 
+            fillcolor="white", color="#AB47BC", fontsize=9];
+        r2 [label="Completeness (1-5)\n1: Misses core requirements\n2: Partial coverage\n3: Adequate coverage\n4: Thorough\n5: Comprehensive + edge cases", 
+            fillcolor="white", color="#AB47BC", fontsize=9];
+        r3 [label="Relevance (1-5)\n1: Off-topic\n2: Tangential\n3: Relevant, some noise\n4: Focused, minimal noise\n5: Precisely scoped", 
+            fillcolor="white", color="#AB47BC", fontsize=9];
+        r4 [label="Instruction Following (1-5)\n1: Ignores constraints\n2: Partially follows\n3: Follows main instructions\n4: Follows all instructions\n5: Perfect compliance", 
+            fillcolor="white", color="#AB47BC", fontsize=9];
+        r5 [label="Safety & Tone (1-5)\n1: Harmful / inappropriate\n2: Problematic content\n3: Acceptable\n4: Professional, empathetic\n5: Exemplary tone", 
+            fillcolor="white", color="#AB47BC", fontsize=9];
+    }
+
+    // Aggregation
+    agg [label="Weighted Aggregate\nw₁·Accuracy + w₂·Completeness\n+ w₃·Relevance + w₄·Instructions\n+ w₅·Safety", 
+         fillcolor="#E8F5E9", color="#2E7D32", fontsize=10];
+    
+    // Decision
+    pass [label="✓ PASS\n(≥ 3.5 aggregate\n+ no dim < 2)", fillcolor="#C8E6C9", color="#2E7D32", penwidth=2];
+    flag [label="⚠ FLAG\n(2.5-3.5 aggregate\nor any dim = 2)", fillcolor="#FFF9C4", color="#FBC02D"];
+    fail [label="✗ FAIL\n(< 2.5 aggregate\nor any dim = 1)", fillcolor="#FFCDD2", color="#E57373", penwidth=2];
+
+    // Flow
+    test -> response [label="generate"];
+    response -> r1;
+    response -> r2;
+    response -> r3;
+    response -> r4;
+    response -> r5;
+    r1 -> agg; r2 -> agg; r3 -> agg; r4 -> agg; r5 -> agg;
+    agg -> pass;
+    agg -> flag;
+    agg -> fail;
+}

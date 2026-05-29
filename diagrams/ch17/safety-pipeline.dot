@@ -1,0 +1,69 @@
+digraph safety_pipeline {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10];
+    edge [fontname="Helvetica", fontsize=8];
+    
+    user_input [label="User\nInput", shape=ellipse, fillcolor="#FFF3E0"];
+    
+    // Input pipeline
+    subgraph cluster_input {
+        label="Input Safety Pipeline (<30ms)";
+        style=filled;
+        color="#FFCDD2";
+        fillcolor="#FFF5F5";
+        
+        pii_in [label="1. PII Detector\n(regex + NER)\n<2ms", fillcolor="#FFCDD2"];
+        toxicity_in [label="2. Toxicity\nClassifier\n(BERT, <5ms)", fillcolor="#FFCDD2"];
+        injection [label="3. Prompt\nInjection\nDetector (<5ms)", fillcolor="#FFCDD2"];
+        policy_in [label="4. Content\nPolicy\n(LLM Judge)", fillcolor="#FFCDD2"];
+    }
+    
+    // Model
+    model [label="Foundation\nModel", shape=box, fillcolor="#E3F2FD", style="rounded,filled,bold"];
+    
+    // Output pipeline
+    subgraph cluster_output {
+        label="Output Safety Pipeline (<20ms)";
+        style=filled;
+        color="#C8E6C9";
+        fillcolor="#F5FFF5";
+        
+        pii_out [label="1. PII Scan\n(training data\nleak check)", fillcolor="#C8E6C9"];
+        toxicity_out [label="2. Toxicity\nClassifier", fillcolor="#C8E6C9"];
+        grounding [label="3. Factual\nGrounding\nCheck (RAG)", fillcolor="#C8E6C9"];
+        consistency [label="4. System\nPrompt\nConsistency", fillcolor="#C8E6C9"];
+    }
+    
+    // Regional
+    regional [label="Regional\nCompliance\n(EU/US/CN)", fillcolor="#FFF9C4"];
+    
+    // Outputs
+    response [label="Safe\nResponse", shape=ellipse, fillcolor="#C8E6C9"];
+    blocked [label="BLOCKED", shape=octagon, fillcolor="#F44336", fontcolor="white"];
+    
+    // Adversarial
+    adversarial [label="Adversarial\nHardening\n• Rate limiting\n• Session analysis\n• Ban escalation", fillcolor="#FFE0B2"];
+    
+    // Red team
+    redteam [label="Red Team\nAutomation\n(continuous)", shape=box, fillcolor="#E1BEE7", style="rounded,filled,dashed"];
+    
+    // Edges
+    user_input -> pii_in;
+    pii_in -> toxicity_in;
+    toxicity_in -> injection;
+    injection -> policy_in;
+    policy_in -> model [label="PASS", color="#4CAF50"];
+    policy_in -> blocked [label="BLOCK", color="#F44336"];
+    pii_in -> blocked [label="PII\nfound", color="#F44336", style=dashed];
+    injection -> blocked [label="injection\ndetected", color="#F44336", style=dashed];
+    model -> pii_out;
+    pii_out -> toxicity_out;
+    toxicity_out -> grounding;
+    grounding -> consistency;
+    consistency -> regional;
+    regional -> response [label="PASS", color="#4CAF50"];
+    regional -> blocked [label="violates\npolicy", color="#F44336"];
+    user_input -> adversarial;
+    redteam -> pii_in [style=dashed, color="#9C27B0"];
+    redteam -> injection [style=dashed, color="#9C27B0"];
+}

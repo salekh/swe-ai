@@ -1,0 +1,39 @@
+digraph five_problems {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,6", ratio=compress,
+           rankdir=LR, nodesep=0.3, ranksep=0.8, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=10, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Before column
+    subgraph cluster_before {
+        style="rounded"; color="#9E9E9E"; bgcolor="#F5F5F5";
+        label="Traditional Approach"; fontcolor="#4A4A4A"; fontsize=12;
+        
+        b1 [label="Code Review\n→ Style linters\n→ Human reviewers\n→ Fatigue after 50th PR", fillcolor="#FFCDD2", color="#E57373"];
+        b2 [label="Incident Response\n→ Static runbooks\n→ Manual log trawling\n→ 23 min MTTD avg", fillcolor="#FFCDD2", color="#E57373"];
+        b3 [label="Test Generation\n→ Coverage-driven\n→ Happy path focus\n→ Author's blind spots", fillcolor="#FFCDD2", color="#E57373"];
+        b4 [label="Data Migration\n→ Manual field mapping\n→ 3 weeks for 847 fields\n→ Schema-only matching", fillcolor="#FFCDD2", color="#E57373"];
+        b5 [label="API Design\n→ Static OpenAPI specs\n→ Docs nobody reads\n→ Copy-paste examples", fillcolor="#FFCDD2", color="#E57373"];
+    }
+
+    // After column
+    subgraph cluster_after {
+        style="rounded"; color="#00758F"; bgcolor="#E0F2F1";
+        label="AI-Augmented Approach"; fontcolor="#00758F"; fontsize=12;
+        
+        a1 [label="Code Review\n→ Semantic analysis\n→ Cross-refs incidents\n→ Never fatigued", fillcolor="#C8E6C9", color="#2E7D32"];
+        a2 [label="Incident Response\n→ Dynamic reasoning\n→ Auto-correlation\n→ 8 min MTTD avg", fillcolor="#C8E6C9", color="#2E7D32"];
+        a3 [label="Test Generation\n→ Intent-driven\n→ Edge case focus\n→ Failure-path thinking", fillcolor="#C8E6C9", color="#2E7D32"];
+        a4 [label="Data Migration\n→ Semantic mapping\n→ 2 days + review\n→ Meaning-based matching", fillcolor="#C8E6C9", color="#2E7D32"];
+        a5 [label="API Design\n→ Interactive exploration\n→ NL questions → code\n→ Framework-specific", fillcolor="#C8E6C9", color="#2E7D32"];
+    }
+
+    // Arrows
+    b1 -> a1 [label="LLM augments\nhuman judgment", color="#00758F"];
+    b2 -> a2 [label="context-aware\nreasoning", color="#00758F"];
+    b3 -> a3 [label="trained on\nmillions of bugs", color="#00758F"];
+    b4 -> a4 [label="understands\nsemantics", color="#00758F"];
+    b5 -> a5 [label="natural\nlanguage", color="#00758F"];
+}

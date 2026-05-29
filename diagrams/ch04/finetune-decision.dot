@@ -1,0 +1,51 @@
+digraph finetune_decision {
+    graph [fontname="Helvetica Neue", fontsize=12, bgcolor="white", size="6.4,5", ratio=compress,
+           rankdir=TB, nodesep=0.5, ranksep=0.6, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    start [label="Need LLM\nfor a task", fillcolor="#FFFDE7", color="#FDD835"];
+    
+    q1 [label="Can a frontier model\n(GPT-4, Claude) do it\nwith prompting?", shape=diamond, 
+        fillcolor="#F0F4F8", color="#90A4AE"];
+    
+    prompt [label="✅ Use Prompt\nEngineering\n(cheapest, fastest)", 
+            fillcolor="#E8F5E9", color="#81C784"];
+    
+    q2 [label="Is the problem\nlack of knowledge\nor lack of behavior?", shape=diamond,
+        fillcolor="#F0F4F8", color="#90A4AE"];
+    
+    rag [label="✅ Use RAG\n(add knowledge\nvia retrieval)", fillcolor="#E8F5E9", color="#81C784"];
+    
+    q3 [label="Do you have\n500+ high-quality\ntraining examples?", shape=diamond,
+        fillcolor="#F0F4F8", color="#90A4AE"];
+    
+    collect [label="⚠️ Collect more data\nbefore fine-tuning", fillcolor="#FFF3E0", color="#FFB74D"];
+    
+    q4 [label="Can you afford\nserving your own\nmodel?", shape=diamond,
+        fillcolor="#F0F4F8", color="#90A4AE"];
+    
+    api_ft [label="✅ Use API\nFine-Tuning\n(OpenAI, Google)", fillcolor="#E3F2FD", color="#64B5F6"];
+    
+    q5 [label="Is latency or\ncost critical?", shape=diamond,
+        fillcolor="#F0F4F8", color="#90A4AE"];
+    
+    qlora [label="✅ QLoRA on\nsmaller model\n(7B-13B)", fillcolor="#F3E5F5", color="#BA68C8"];
+    
+    lora [label="✅ LoRA on\nlarger model\n(70B+)", fillcolor="#F3E5F5", color="#BA68C8"];
+
+    // Edges
+    start -> q1;
+    q1 -> prompt [label="Yes"];
+    q1 -> q2 [label="No"];
+    q2 -> rag [label="Knowledge"];
+    q2 -> q3 [label="Behavior"];
+    q3 -> collect [label="No"];
+    q3 -> q4 [label="Yes"];
+    q4 -> api_ft [label="No\n(use API)"];
+    q4 -> q5 [label="Yes\n(self-host)"];
+    q5 -> qlora [label="Yes"];
+    q5 -> lora [label="No\n(quality first)"];
+}

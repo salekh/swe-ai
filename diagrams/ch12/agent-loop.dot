@@ -1,0 +1,73 @@
+digraph agent_loop {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,6", ratio=compress,
+           rankdir=TB, nodesep=0.5, ranksep=0.6, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Goal input
+    goal [label="User Goal\n\"Add pagination\nto /users\"", fillcolor="#FFFDE7", color="#FDD835"];
+
+    // Core loop
+    subgraph cluster_loop {
+        style="rounded"; color="#00758F"; bgcolor="#E0F2F1";
+        label="Agent Execution Loop"; fontcolor="#00758F"; fontsize=11;
+        
+        observe [label="① Observe\n(read environment:\nfiles, tool output,\nerror messages)", fillcolor="#E3F2FD", color="#64B5F6"];
+        reason [label="② Reason\n(LLM: analyze state,\nplan next step,\nchoose tool)", fillcolor="#F3E5F5", color="#BA68C8"];
+        act [label="③ Act\n(execute tool:\nread file, write code,\nrun tests)", fillcolor="#FFF3E0", color="#FFB74D"];
+    }
+
+    // Memory
+    subgraph cluster_memory {
+        style="rounded,dashed"; color="#B0BEC5"; bgcolor="#FAFAFA";
+        label="Memory"; fontcolor="#607D8B"; fontsize=10;
+        
+        short_mem [label="Short-Term\n(conversation\nhistory)", fillcolor="#ECEFF1", color="#B0BEC5"];
+        long_mem [label="Long-Term\n(vector store\nof past tasks)", fillcolor="#ECEFF1", color="#B0BEC5", shape=cylinder];
+    }
+
+    // Tools
+    subgraph cluster_tools {
+        style="rounded,dashed"; color="#FFB74D"; bgcolor="#FFF3E0";
+        label="Tool Registry"; fontcolor="#E65100"; fontsize=10;
+        
+        read [label="read_file", fillcolor="#FFF3E0", color="#FFB74D"];
+        write [label="write_file", fillcolor="#FFF3E0", color="#FFB74D"];
+        search [label="search_code", fillcolor="#FFF3E0", color="#FFB74D"];
+        run [label="run_tests", fillcolor="#FFF3E0", color="#FFB74D"];
+        shell [label="shell_exec", fillcolor="#FFF3E0", color="#FFB74D"];
+    }
+
+    // Guardrails
+    guardrails [label="Guardrails\n• Max steps: 20\n• Budget: $2.00\n• Approval gate\n• Sandbox limits", fillcolor="#FCE4EC", color="#E57373"];
+
+    // Terminal states
+    success [label="✅ Goal\nComplete", fillcolor="#E8F5E9", color="#2E7D32"];
+    failure [label="❌ Failed\n(max steps or\nbudget exceeded)", fillcolor="#FCE4EC", color="#E57373"];
+
+    // Core loop flow
+    goal -> observe;
+    observe -> reason;
+    reason -> act;
+    act -> observe [label="loop back\nwith result", color="#00758F", penwidth=1.5];
+
+    // Memory connections
+    observe -> short_mem [style=dashed, dir=both, color="#90A4AE"];
+    reason -> long_mem [style=dashed, label="retrieve\nsimilar tasks", color="#90A4AE"];
+
+    // Tool connections
+    act -> read [style=dashed, color="#FFB74D"];
+    act -> write [style=dashed, color="#FFB74D"];
+    act -> search [style=dashed, color="#FFB74D"];
+    act -> run [style=dashed, color="#FFB74D"];
+    act -> shell [style=dashed, color="#FFB74D"];
+
+    // Guardrails
+    act -> guardrails [style=dashed, color="#E57373"];
+
+    // Terminal
+    reason -> success [label="\"done\"", color="#2E7D32"];
+    guardrails -> failure [label="limit\nhit", color="#C4362A"];
+}

@@ -1,0 +1,52 @@
+digraph memory_tiers {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,6", ratio=compress,
+           rankdir=TB, nodesep=0.4, ranksep=0.5, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Agent core
+    agent [label="Agent\nReasoning Loop", fillcolor="#FFFDE7", color="#F9A825", fontsize=12, penwidth=2];
+
+    // ======== Short-Term Memory ========
+    subgraph cluster_stm {
+        style="rounded"; color="#1565C0"; bgcolor="#E3F2FD";
+        label="Short-Term Memory (ms–minutes)"; fontcolor="#1565C0"; fontsize=11;
+        
+        context [label="Context Window\n(conversation history,\ntool results, system prompt)", fillcolor="#BBDEFB", color="#64B5F6"];
+        compact [label="Compaction Strategy\n• Sliding window (keep last N)\n• Summarize old turns\n• Token-aware truncation", fillcolor="#BBDEFB", color="#64B5F6", fontsize=10];
+        
+        context -> compact [label="threshold\nexceeded", style=dashed, color="#1565C0"];
+    }
+
+    // ======== Working Memory ========
+    subgraph cluster_wm {
+        style="rounded"; color="#FFB74D"; bgcolor="#FFF3E0";
+        label="Working Memory (minutes–hours)"; fontcolor="#E65100"; fontsize=11;
+        
+        scratchpad [label="Scratchpad / State\n• Current plan + step tracker\n• Intermediate results\n• Hypothesis list", fillcolor="#FFE0B2", color="#FFB74D"];
+        vars [label="Session Variables\n• User preferences\n• Active file paths\n• Accumulated context", fillcolor="#FFE0B2", color="#FFB74D"];
+    }
+
+    // ======== Long-Term Memory ========
+    subgraph cluster_ltm {
+        style="rounded"; color="#7B1FA2"; bgcolor="#F3E5F5";
+        label="Long-Term Memory (days–months)"; fontcolor="#7B1FA2"; fontsize=11;
+        
+        vector [label="Vector Store\n(semantic search over\npast conversations,\ndocuments, preferences)", fillcolor="#E1BEE7", color="#BA68C8"];
+        episodic [label="Episodic Memory\n(past task trajectories\nw/ outcomes + reflections)", fillcolor="#E1BEE7", color="#BA68C8"];
+        skills [label="Learned Skills\n(distilled procedures\nthat worked before)", fillcolor="#E1BEE7", color="#BA68C8"];
+    }
+
+    // Connections
+    agent -> context [label="read/write\nevery turn"];
+    agent -> scratchpad [label="update\nper step"];
+    agent -> vector [label="recall\nrelevant\nmemories", style=dashed];
+    agent -> episodic [label="retrieve\nsimilar past\ntasks", style=dashed];
+    episodic -> skills [label="distill into\nreusable\nprocedures", style=dashed, color="#7B1FA2"];
+
+    // Design notes
+    design [label="Design Rule: Only persist what the agent will actually retrieve.\nEvery memory write should have a corresponding retrieval use case.",
+            shape=note, fillcolor="#FFFDE7", color="#F9A825", fontsize=10, fontcolor="#4A4A4A"];
+}

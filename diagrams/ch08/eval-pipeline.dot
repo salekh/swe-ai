@@ -1,0 +1,57 @@
+digraph eval_pipeline {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,7", ratio=compress,
+           rankdir=TB, nodesep=0.4, ranksep=0.5, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Input
+    output [label="LLM Output\n(raw response)", fillcolor="#FFFDE7", color="#F9A825", fontsize=12, penwidth=2];
+
+    // Level 1
+    subgraph cluster_l1 {
+        style="rounded"; color="#2E7D32"; bgcolor="#E8F5E9";
+        label="Level 1: Structural Validation (cheap, 100% coverage)"; fontcolor="#2E7D32"; fontsize=11;
+        
+        l1_parse [label="Schema Parsing\n(JSON valid?\nPydantic model?)", fillcolor="#C8E6C9", color="#81C784"];
+        l1_constraints [label="Constraint Checks\n• Length bounds\n• Enum membership\n• Cross-field logic\n• No contradictions", fillcolor="#C8E6C9", color="#81C784"];
+        l1_result [label="✓ Pass / ✗ Reject\n(immediate, <1ms)", fillcolor="#C8E6C9", color="#81C784", fontsize=10];
+        
+        l1_parse -> l1_constraints -> l1_result;
+    }
+
+    // Level 2
+    subgraph cluster_l2 {
+        style="rounded"; color="#1565C0"; bgcolor="#E3F2FD";
+        label="Level 2: LLM-as-Judge (moderate cost, sampled or full)"; fontcolor="#1565C0"; fontsize=11;
+        
+        l2_criteria [label="Criteria Definition\n• Relevance (1-5)\n• Factual accuracy (1-5)\n• Completeness (1-5)\n• Tone/style (1-5)", fillcolor="#BBDEFB", color="#64B5F6"];
+        l2_judge [label="Judge Model\n(stronger model evaluates\nweaker model's output)\nGPT-5.5 judges Flash", fillcolor="#BBDEFB", color="#64B5F6"];
+        l2_pairwise [label="Pairwise Comparison\n(A vs B, run in BOTH\norders to detect\nposition bias)", fillcolor="#BBDEFB", color="#64B5F6"];
+        
+        l2_criteria -> l2_judge;
+        l2_criteria -> l2_pairwise;
+    }
+
+    // Level 3
+    subgraph cluster_l3 {
+        style="rounded"; color="#7B1FA2"; bgcolor="#F3E5F5";
+        label="Level 3: Statistical Evaluation (expensive, periodic)"; fontcolor="#7B1FA2"; fontsize=11;
+        
+        l3_dataset [label="Golden Dataset\n(curated test cases\nw/ ground truth,\nversioned)", fillcolor="#E1BEE7", color="#BA68C8"];
+        l3_aggregate [label="Aggregate Metrics\n• Mean score by category\n• Score distribution\n• Worst-case analysis\n• p95 latency", fillcolor="#E1BEE7", color="#BA68C8"];
+        l3_regression [label="Regression Detection\nΔ > threshold?\n→ Block deployment", fillcolor="#E1BEE7", color="#BA68C8"];
+        
+        l3_dataset -> l3_aggregate -> l3_regression;
+    }
+
+    // Flow
+    output -> l1_parse;
+    l1_result -> l2_criteria [label="passed structural\nvalidation"];
+    l2_judge -> l3_dataset [label="scores feed into\nstatistical analysis", style=dashed];
+
+    // Timing
+    timing [label="Execution: L1 in every request | L2 sampled 5-10% | L3 in CI/CD and weekly",
+            shape=note, fillcolor="#FFFDE7", color="#F9A825", fontsize=9, fontcolor="#4A4A4A"];
+}

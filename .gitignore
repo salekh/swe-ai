@@ -1,0 +1,51 @@
+# =============================================================================
+# Software Engineering in the Age of AI — .gitignore
+# =============================================================================
+
+# ── LaTeX build artifacts ────────────────────────────────────────────────────
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.xdv
+*.nav
+*.snm
+*.vrb
+_minted-*/
+
+# ── Output PDF (build from source) ──────────────────────────────────────────
+main.pdf
+
+# ── Build directory ─────────────────────────────────────────────────────────
+build/
+
+# ── Python ──────────────────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+
+# ── OS files ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ── Editor / IDE ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace

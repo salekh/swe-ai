@@ -1,0 +1,87 @@
+\documentclass{sweai}
+
+%% Bibliography source
+\addbibresource{bibliography.bib}
+
+%% ============================================================================
+%% DOCUMENT
+%% ============================================================================
+\begin{document}
+
+%% ---------- Front Matter ----------
+\frontmatter
+
+%% ---------- Cover Page ----------
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture, overlay]
+  \node[inner sep=0pt] at (current page.center) {%
+    \includegraphics[width=\paperwidth,height=\paperheight]{frontmatter/cover.png}%
+  };
+\end{tikzpicture}
+\cleardoublepage
+
+\input{frontmatter/titlepage}
+\cleardoublepage
+
+\input{frontmatter/preface}
+\cleardoublepage
+
+\tableofcontents
+\cleardoublepage
+
+\listoffigures
+\cleardoublepage
+
+%% ---------- Main Matter ----------
+\mainmatter
+
+%% ===== Part I: Foundations =====
+\part{Foundations --- Understanding LLMs as a Software Engineer}
+\label{part:foundations}
+
+\input{chapters/ch01-paradigm-shift}
+\input{chapters/ch02-pretraining}
+\input{chapters/ch03-post-training}
+\input{chapters/ch04-finetuning}
+
+%% ===== Part II: Building with LLMs =====
+\part{Building with LLMs --- Architecture \& Systems}
+\label{part:building}
+
+\input{chapters/ch05-app-architecture}
+\input{chapters/ch06-enterprise-case-studies}
+\input{chapters/ch07-data-engineering}
+\input{chapters/ch08-evaluation-testing}
+
+%% ===== Part III: AI-Augmented Software Engineering =====
+\part{AI-Augmented Software Engineering}
+\label{part:augmented}
+
+\input{chapters/ch09-ai-assisted-dev}
+\input{chapters/ch10-ai-native-teams}
+\input{chapters/ch11-reliability-ops}
+
+%% ===== Part IV: Agents, Autonomy & What's Next =====
+\part{The Future --- Agents, Autonomy \& What's Next}
+\label{part:future}
+
+\input{chapters/ch12-building-agents}
+\input{chapters/ch13-agent-engineering}
+\input{chapters/ch14-culture-org}
+\input{chapters/ch15-road-ahead}
+
+%% ===== Part V: Interview Preparation =====
+\part{Interview Preparation --- Cracking AI/ML Engineering Interviews}
+\label{part:interviews}
+
+\input{chapters/ch16-python-interviews}
+\input{chapters/ch17-systems-design-interviews}
+
+%% ---------- Back Matter ----------
+\backmatter
+
+\input{chapters/ch18-appendices}
+
+\printbibliography[heading=bibintoc,title={References}]
+
+\end{document}

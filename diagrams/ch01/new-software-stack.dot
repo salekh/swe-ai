@@ -1,0 +1,110 @@
+digraph new_software_stack {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,7", ratio=compress,
+           rankdir=TB, nodesep=0.5, ranksep=0.6, pad=0.3, compound=true];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.14,0.08"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#78909C",
+           penwidth=1.0, arrowsize=0.7];
+
+    // ════════ USER LAYER ════════
+    subgraph cluster_user {
+        style="rounded"; color="#B0BEC5"; bgcolor="#FAFAFA";
+        label="User-Facing Layer"; fontcolor="#607D8B"; fontsize=11;
+        
+        web [label="Web App", fillcolor="#FFFDE7", color="#FBC02D", fontsize=10];
+        mobile [label="Mobile", fillcolor="#FFFDE7", color="#FBC02D", fontsize=10];
+        api_pub [label="Public API", fillcolor="#FFFDE7", color="#FBC02D", fontsize=10];
+        cli [label="CLI / Agent", fillcolor="#FFFDE7", color="#FBC02D", fontsize=10];
+    }
+
+    // ════════ AI ORCHESTRATION LAYER (the star) ════════
+    subgraph cluster_ai {
+        style="rounded,bold"; color="#00758F"; bgcolor="#E0F2F1";
+        label="★  AI Orchestration Layer  ★"; fontcolor="#00758F"; fontsize=13; penwidth=2.5;
+        
+        // Row 1: Input processing
+        subgraph cluster_input {
+            style="rounded"; color="#80CBC4"; bgcolor="#B2DFDB";
+            label="Input Processing"; fontcolor="#00695C"; fontsize=10;
+            
+            guardin [label="Input\nGuardrails\n(PII, injection)", fillcolor="white", color="#00897B", fontsize=9];
+            cache_check [label="Semantic\nCache\n(check)", fillcolor="white", color="#00897B", fontsize=9];
+            context_asm [label="Context\nAssembly\n(RAG)", fillcolor="white", color="#00897B", fontsize=9];
+        }
+        
+        // Row 2: Core
+        subgraph cluster_core {
+            style="rounded"; color="#80CBC4"; bgcolor="#B2DFDB";
+            label="Prompt & Routing"; fontcolor="#00695C"; fontsize=10;
+            
+            prompt_mgmt [label="Prompt\nManager\n(versioned,\ntemplated)", fillcolor="white", color="#00897B", fontsize=9];
+            router [label="Model\nRouter\n(cost/quality\ntier selector)", fillcolor="white", color="#00897B", fontsize=9];
+        }
+        
+        // Row 3: Output
+        subgraph cluster_output {
+            style="rounded"; color="#80CBC4"; bgcolor="#B2DFDB";
+            label="Output Processing"; fontcolor="#00695C"; fontsize=10;
+            
+            validate [label="Schema\nValidation\n(structured\noutput)", fillcolor="white", color="#00897B", fontsize=9];
+            guardout [label="Output\nGuardrails\n(safety,\ncompliance)", fillcolor="white", color="#00897B", fontsize=9];
+            eval [label="Quality\nEvaluation\n(sampled\nLLM-judge)", fillcolor="white", color="#00897B", fontsize=9];
+        }
+    }
+
+    // ════════ MODEL PROVIDERS ════════
+    subgraph cluster_models {
+        style="rounded"; color="#7B1FA2"; bgcolor="#F3E5F5";
+        label="Model Providers"; fontcolor="#7B1FA2"; fontsize=11;
+        
+        gpt [label="OpenAI\nGPT-5.5 / o4-mini", fillcolor="#E1BEE7", color="#AB47BC", fontsize=10];
+        gemini [label="Google\nGemini Pro 3.1\nGemini 3.5 Flash", fillcolor="#E1BEE7", color="#AB47BC", fontsize=10];
+        claude [label="Anthropic\nClaude Opus 4.8", fillcolor="#E1BEE7", color="#AB47BC", fontsize=10];
+        oss [label="Self-Hosted\nLlama 4\nMistral", fillcolor="#E1BEE7", color="#AB47BC", fontsize=10];
+    }
+
+    // ════════ DATA & INFRASTRUCTURE ════════
+    subgraph cluster_infra {
+        style="rounded"; color="#90A4AE"; bgcolor="#ECEFF1";
+        label="Data & Infrastructure"; fontcolor="#607D8B"; fontsize=11;
+        
+        vectordb [label="Vector DB\n(Pinecone,\nWeaviate)", fillcolor="#CFD8DC", color="#90A4AE", shape=cylinder, fontsize=9];
+        db [label="Application\nDB", fillcolor="#CFD8DC", color="#90A4AE", shape=cylinder, fontsize=9];
+        observ [label="Observability\n(traces, metrics,\ncost, quality)", fillcolor="#CFD8DC", color="#90A4AE", fontsize=9];
+        embedder [label="Embedding\nModel", fillcolor="#CFD8DC", color="#90A4AE", fontsize=9];
+    }
+
+    // ════════ FLOW ════════
+    // User → Input processing
+    {web mobile api_pub cli} -> guardin [color="#00758F", penwidth=1.5, lhead=cluster_input];
+    
+    // Input processing flow
+    guardin -> cache_check -> context_asm;
+    
+    // Input → Core
+    context_asm -> prompt_mgmt;
+    prompt_mgmt -> router;
+    
+    // Router → Models
+    router -> gpt [label="premium", color="#7B1FA2", penwidth=1.3];
+    router -> gemini [label="standard", color="#7B1FA2"];
+    router -> claude [label="fallback", color="#7B1FA2", style=dashed];
+    router -> oss [label="fast/private", color="#7B1FA2", style=dashed];
+    
+    // Models → Output
+    gpt -> validate [color="#2E7D32", penwidth=1.3, ltail=cluster_models];
+    
+    // Output flow
+    validate -> guardout -> eval;
+    
+    // Output → User
+    guardout -> web [label="response", color="#2E7D32", style=dashed, lhead=cluster_user];
+    
+    // RAG connections
+    context_asm -> vectordb [label="retrieve", color="#1565C0", style=dashed];
+    embedder -> vectordb [label="index", color="#1565C0", style=dashed];
+    
+    // Observability
+    eval -> observ [label="log quality", color="#FF8F00", style=dashed];
+    router -> observ [label="log cost", color="#FF8F00", style=dashed];
+}

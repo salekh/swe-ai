@@ -1,0 +1,45 @@
+\chapter*{Preface}
+\addcontentsline{toc}{chapter}{Preface}
+
+\begin{quote}
+\itshape
+``The best time to understand AI was five years ago. The second best time is now.''
+\end{quote}
+
+\vspace{0.5cm}
+
+\noindent
+Software engineering is in the midst of its most significant transformation since the rise of the internet. Large Language Models have moved from research curiosities to production infrastructure powering billions of requests per day. Yet the gap between understanding what LLMs \emph{can do} and knowing how to \emph{engineer with them} at scale remains vast.
+
+This book bridges that gap.
+
+We wrote this book for the working software engineer---the person who ships code, reviews pull requests, argues about system design, and lies awake at night thinking about production incidents. You don't need a PhD in machine learning to read this book, but we won't insult your intelligence by glossing over the technical details that matter. When we explain how transformers work, we explain them as a software engineer would want to understand them: as systems with inputs, outputs, computational costs, and failure modes.
+
+\section*{What This Book Covers}
+
+This book is organized into five parts:
+
+\textbf{Part~I: Foundations} takes you through the LLM lifecycle from a systems perspective. You'll understand pre-training infrastructure (how do you train on trillions of tokens across thousands of GPUs?), post-training and alignment (how do you make a model actually useful?), and fine-tuning for production (when should you fine-tune, and how do you not waste \$50,000 doing it?).
+
+\textbf{Part~II: Building with LLMs} covers the architecture patterns that have emerged for LLM-powered applications. From RAG pipelines and prompt management to the real-world architectures behind GitHub Copilot, Google Gemini, and Stripe's document processing systems. We focus on the hard problems: latency, cost, evaluation, and reliability at scale.
+
+\textbf{Part~III: AI-Augmented Software Engineering} examines how AI tools are changing the daily practice of software engineering. Not the marketing claims---the reality. What works, what doesn't, and how to build engineering organizations that leverage AI effectively without losing their engineering discipline.
+
+\textbf{Part~IV: Agents \& The Future} dives deep into building production-quality AI agents. This is where software engineering meets autonomy: how do you test a system that makes its own decisions? How do you debug non-deterministic behavior? How do you keep costs under control when an agent can call an API 10,000 times in a loop?
+
+\textbf{Part~V: Interview Preparation} provides over 90 carefully crafted interview questions in Python programming and systems design, drawn from real interview loops at companies like Google, OpenAI, Anthropic, and Meta. Each question includes detailed solutions, complexity analysis, and insight into what interviewers are really evaluating.
+
+\section*{How to Read This Book}
+
+If you're a senior engineer looking to understand LLMs deeply, start with Part~I. If you're already building with LLMs and want architectural guidance, jump to Part~II. If you're preparing for an AI/ML engineering interview, Part~V can stand alone. But we encourage you to read the whole thing---the connections between the foundational knowledge and the practical architecture decisions are what make this book valuable.
+
+\section*{Acknowledgments}
+
+This book was inspired by \emph{Software Engineering at Google} by Titus Winters, Tom Manshreck, and Hyrum Wright---a book that set the standard for rigorous, practical technical writing about engineering practice. We aspire to that same standard for the AI era.
+
+\section*{A Note on Currency}
+
+AI moves fast. We've done our best to capture the state of the art as of early 2025, but some specific tools, model names, and benchmark numbers will inevitably age. The principles, architectures, and engineering practices we describe are designed to outlast any particular model generation.
+
+\vspace{1cm}
+\hfill\textit{--- The Authors, 2025}

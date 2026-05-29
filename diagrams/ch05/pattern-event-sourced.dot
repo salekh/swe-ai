@@ -1,0 +1,51 @@
+digraph event_sourced_agent {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,4.5!", ratio=fill,
+           rankdir=LR, nodesep=0.35, ranksep=0.6, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=10, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Agent loop
+    subgraph cluster_loop {
+        style="rounded"; color="#1565C0"; bgcolor="#E3F2FD"; penwidth=2;
+        label="Agent Reasoning Loop"; fontcolor="#1565C0"; fontsize=11;
+        
+        observe [label="Observe\n(gather context,\ntool results)", fillcolor="#BBDEFB", color="#42A5F5"];
+        think [label="Think\n(LLM inference,\nreasoning)", fillcolor="#BBDEFB", color="#42A5F5"];
+        act [label="Act\n(tool call,\ncode edit)", fillcolor="#BBDEFB", color="#42A5F5"];
+        
+        observe -> think -> act;
+        act -> observe [label="next cycle", style=dashed, color="#1565C0"];
+    }
+
+    // Event store
+    subgraph cluster_store {
+        style="rounded"; color="#2E7D32"; bgcolor="#E8F5E9"; penwidth=2;
+        label="Immutable Event Log"; fontcolor="#2E7D32"; fontsize=11;
+        
+        e1 [label="Event 1\nObservation\nt=0", fillcolor="#C8E6C9", color="#66BB6A", fontsize=9];
+        e2 [label="Event 2\nThought\nt=1", fillcolor="#C8E6C9", color="#66BB6A", fontsize=9];
+        e3 [label="Event 3\nAction\nt=2", fillcolor="#C8E6C9", color="#66BB6A", fontsize=9];
+        e4 [label="Event 4\nObservation\nt=3", fillcolor="#C8E6C9", color="#66BB6A", fontsize=9];
+        en [label="...\nEvent N\nt=N", fillcolor="#C8E6C9", color="#66BB6A", fontsize=9];
+        
+        e1 -> e2 -> e3 -> e4 -> en [color="#2E7D32", arrowsize=0.5];
+    }
+
+    // Capabilities
+    resume [label="Resume\nRehydrate state\nfrom event log\nat any point", fillcolor="#FFFDE7", color="#FBC02D"];
+    audit [label="Audit Trail\nFull trace of\nevery decision\nfor compliance", fillcolor="#FFFDE7", color="#FBC02D"];
+    branch [label="Branch\nFork from event N\nto explore\nalternative path", fillcolor="#FFFDE7", color="#FBC02D"];
+    debug [label="Time-Travel\nDebug\nReplay to exact\nfailure point", fillcolor="#FFFDE7", color="#FBC02D"];
+
+    // Flow
+    observe -> e1 [label="persist\nbefore\nnext call", color="#2E7D32", style=dashed];
+    think -> e2 [color="#2E7D32", style=invis];
+    act -> e3 [color="#2E7D32", style=invis];
+    
+    en -> resume;
+    en -> audit;
+    en -> branch;
+    en -> debug;
+}

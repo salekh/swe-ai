@@ -1,0 +1,2068 @@
+\chapter{Python Programming for AI/ML Interviews}
+\label{ch:python-interviews}
+
+\begin{quote}
+\itshape
+This chapter contains 50 carefully selected Python interview questions, organized by topic and difficulty. Each question is designed to test the deep language fluency and systems thinking required of AI/ML engineers---not rote memorization. Questions marked with $\star$ are particularly common at top-tier AI companies.
+\end{quote}
+
+\vspace{0.5cm}
+
+
+\section{Data Structures and Algorithmic Thinking}
+
+\subsection{Q1: The LRU Cache $\star$}
+
+\textbf{Question}: Implement an LRU (Least Recently Used) cache with $O(1)$ time complexity for both \code{get} and \code{put} operations. Explain your choice of data structures.
+
+\textbf{What interviewers look for}: Understanding of hash maps and doubly-linked lists. The combination provides $O(1)$ access (hash map) and $O(1)$ insertion/deletion (linked list). Bonus: mention that Python's \code{OrderedDict} provides this natively, and explain how it works internally.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+class Node:
+    __slots__ = ('key', 'val', 'prev', 'next')
+    def __init__(self, key: int = 0, val: int = 0):
+        self.key, self.val = key, val
+        self.prev = self.next = None
+
+class LRUCache:
+    def __init__(self, capacity: int):
+        self.cap = capacity
+        self.cache: dict[int, Node] = {}
+        # Sentinel nodes avoid null-checks on every operation
+        self.head, self.tail = Node(), Node()
+        self.head.next = self.tail
+        self.tail.prev = self.head
+
+    def _remove(self, node: Node) -> None:
+        node.prev.next, node.next.prev = node.next, node.prev
+
+    def _insert_front(self, node: Node) -> None:
+        node.next, node.prev = self.head.next, self.head
+        self.head.next.prev = node
+        self.head.next = node
+
+    def get(self, key: int) -> int:
+        if key not in self.cache:
+            return -1
+        node = self.cache[key]
+        self._remove(node)          # detach
+        self._insert_front(node)    # move to front (most recent)
+        return node.val
+
+    def put(self, key: int, value: int) -> None:
+        if key in self.cache:
+            self._remove(self.cache[key])
+        node = Node(key, value)
+        self.cache[key] = node
+        self._insert_front(node)
+        if len(self.cache) > self.cap:
+            lru = self.tail.prev     # least recently used
+            self._remove(lru)
+            del self.cache[lru.key]
+\end{lstlisting}
+
+\textbf{Why \code{\_\_slots\_\_}}: Each cache entry creates a \code{Node}. With 100K entries, \code{\_\_slots\_\_} saves $\sim$48 bytes per node = 4.8 MB total. Small win, but signals production awareness.
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Write property-based tests (hypothesis library): after $N$ random \code{put/get} operations, assert that (1) cache never exceeds capacity, (2) most recently accessed item is always retrievable, (3) eviction always removes the least-recently-used item. Also test edge cases: capacity=1, duplicate keys, get-after-eviction.
+    \item \textbf{Thread safety}: Wrap \code{get}/\code{put} with \code{threading.Lock}. For read-heavy workloads, use \code{threading.RLock} or a read-write lock to allow concurrent reads.
+    \item \textbf{Production scaling}: For a distributed semantic cache, this becomes a local per-node cache with consistent hashing across nodes. Add TTL expiration with a background reaper thread.
+    \item \textbf{Metrics to track}: Hit rate, miss rate, eviction rate, average access latency, cache size over time.
+\end{itemize}
+
+\textbf{Key insight}: This question tests whether you understand that different data structures compose to achieve properties that neither has alone. In AI systems, LRU caches are used for semantic caching of LLM responses---the same architectural pattern at a different scale.
+
+
+\subsection{Q2: Streaming Top-K with Bounded Memory}
+
+\textbf{Question}: You have a stream of 100 million embedding similarity scores arriving one at a time. Return the top 100 scores using $O(k)$ memory, where $k = 100$.
+
+\textbf{What interviewers look for}: Use a min-heap (\code{heapq}) of size $k$. For each new score, compare against the heap's minimum. If larger, replace the minimum and re-heapify. Total complexity: $O(n \log k)$.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import heapq
+from typing import Iterator
+
+def streaming_top_k(
+    scores: Iterator[tuple[str, float]],  # (doc_id, score)
+    k: int = 100
+) -> list[tuple[str, float]]:
+    """Return top-K items from an unbounded stream."""
+    heap: list[tuple[float, str]] = []  # min-heap by score
+    for doc_id, score in scores:
+        if len(heap) < k:
+            heapq.heappush(heap, (score, doc_id))
+        elif score > heap[0][0]:  # better than current min
+            heapq.heapreplace(heap, (score, doc_id))
+    # Return sorted descending
+    return [(doc_id, score)
+            for score, doc_id in sorted(heap, reverse=True)]
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Feed a known list, verify output matches sorted top-K. Test with $k > n$ (fewer items than K). Test with all identical scores. Test with negative scores.
+    \item \textbf{Why min-heap, not max-heap?}: We maintain a heap of the $k$ largest items. The \emph{smallest} item in this heap is the one we might evict, so we need fast access to the minimum---hence min-heap.
+    \item \textbf{Distributed top-K}: Each worker computes local top-K. Merge all workers' results (at most $W \times k$ items) with a final top-K pass. This is how distributed vector databases work.
+\end{itemize}
+
+\textbf{Key insight}: This is a production pattern for retrieval systems---when scanning millions of embeddings, you cannot sort the entire list. The heap-based approach is how vector databases implement top-K retrieval internally.
+
+\subsection{Q3: Efficient Deduplication}
+
+\textbf{Question}: Given a list of 50 million strings, remove duplicates while preserving insertion order. Discuss the time-space trade-offs of at least two approaches.
+
+\textbf{What interviewers look for}: Approach 1: \code{dict.fromkeys(items)} --- preserves order, $O(n)$ time and space. Approach 2: Bloom filter for approximate deduplication with $O(1)$ space per element but false positives. Approach 3: External sort and sequential scan for datasets that don't fit in memory.
+
+\subsection{Q4: The Sliding Window Pattern}
+
+\textbf{Question}: Given a sequence of token log-probabilities from an LLM, find the contiguous subsequence of length $k$ with the highest average probability. Do this in $O(n)$ time.
+
+\textbf{What interviewers look for}: Classic sliding window. Maintain a running sum; as the window slides right, add the new element and subtract the element that falls off.
+
+\subsection{Q5: Hash Collision Resolution}
+
+\textbf{Question}: Explain how Python's \code{dict} handles hash collisions internally. What is the worst-case time complexity for lookup, and under what conditions does it occur?
+
+\textbf{What interviewers look for}: Python uses open addressing with quadratic probing. Worst case is $O(n)$ when all keys hash to the same slot. In practice, Python's hash function and table resizing (load factor $<$ 2/3) keep amortized lookup at $O(1)$.
+
+
+\section{Python Internals}
+
+\subsection{Q6: The Global Interpreter Lock (GIL) $\star$}
+
+\textbf{Question}: Explain the GIL and its implications for AI/ML workloads. When is multithreading effective despite the GIL? How does Python 3.13's free-threaded mode change this?
+
+\textbf{What interviewers look for}: The GIL prevents true parallel execution of Python bytecode in threads. However, the GIL is released during I/O operations and C extension calls (NumPy, PyTorch). This means: (1) \code{threading} is effective for I/O-bound work (API calls, file reads), (2) \code{multiprocessing} is required for CPU-bound Python work, and (3) NumPy/PyTorch operations are inherently parallel because they release the GIL.
+
+Python 3.13 introduced experimental free-threaded mode (\code{--disable-gil}) which removes the GIL entirely, enabling true multi-threaded CPU parallelism in pure Python.
+
+\subsection{Q7: Memory Management and \code{\_\_slots\_\_}}
+
+\textbf{Question}: You have a class representing a token in a tokenizer. You will create 500 million instances during a training run. How do you minimize memory usage?
+
+\textbf{What interviewers look for}: Use \code{\_\_slots\_\_} to eliminate the per-instance \code{\_\_dict\_\_}. A class with \code{\_\_dict\_\_} uses $\sim$104 bytes per instance; with \code{\_\_slots\_\_}, it drops to $\sim$56 bytes. At 500M instances, that's 24 GB saved.
+
+\subsection{Q8: Generators and Memory Efficiency $\star$}
+
+\textbf{Question}: You need to process a 200 GB training dataset file. Write a generator-based data loader that reads and preprocesses data in batches without loading the entire file into memory.
+
+\textbf{What interviewers look for}: A generator function (\code{yield}) that reads the file in chunks, applies preprocessing (tokenization, filtering), and yields batches. Key points: lazy evaluation, constant memory regardless of file size, and composability with other generators.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import json
+from typing import Iterator, Callable
+
+def read_jsonl(path: str) -> Iterator[dict]:
+    """Stage 1: Lazy line-by-line reading."""
+    with open(path) as f:
+        for line in f:
+            yield json.loads(line)
+
+def preprocess(
+    records: Iterator[dict],
+    tokenize_fn: Callable[[str], list[int]]
+) -> Iterator[dict]:
+    """Stage 2: Apply preprocessing lazily."""
+    for record in records:
+        text = record.get("text", "")
+        tokens = tokenize_fn(text)
+        if len(tokens) < 10:  # quality filter
+            continue
+        yield {"tokens": tokens, "id": record["id"]}
+
+def batch(
+    items: Iterator[dict], batch_size: int = 32
+) -> Iterator[list[dict]]:
+    """Stage 3: Group into batches."""
+    buf = []
+    for item in items:
+        buf.append(item)
+        if len(buf) >= batch_size:
+            yield buf
+            buf = []
+    if buf:  # don't drop the last partial batch
+        yield buf
+
+# Composable pipeline (constant memory):
+for b in batch(preprocess(read_jsonl("data.jsonl"),
+                          tokenize_fn=my_tokenizer)):
+    model.train_on_batch(b)  # each batch is 32 records
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Memory}: Each stage holds at most 1 record in memory (except \code{batch} which holds \code{batch\_size}). Total memory: $O(\text{batch\_size})$ regardless of file size.
+    \item \textbf{Testing}: Create a test file with 100 records. Verify: all records are yielded, filtering works, batches are correct size, last partial batch is not dropped. Memory profiling: verify peak memory doesn't grow with file size.
+    \item \textbf{Parallelism}: Use \code{multiprocessing.Pool.imap\_unordered()} to parallelize the \code{preprocess} stage across CPU cores while keeping the pipeline lazy.
+    \item \textbf{Error handling}: What if one line is corrupted JSON? Add \code{try/except} in \code{read\_jsonl} and either skip or log the error.
+\end{itemize}
+
+\subsection{Q9: Context Managers}
+
+\textbf{Question}: Design a context manager for managing GPU memory in a training loop---it should allocate a specific GPU on entry, track memory usage, and release it on exit, even if an exception occurs.
+
+\textbf{What interviewers look for}: Both the class-based approach (\code{\_\_enter\_\_}/\code{\_\_exit\_\_}) and the decorator-based approach (\code{@contextmanager}). The \code{\_\_exit\_\_} method must handle exceptions gracefully.
+
+\subsection{Q10: Decorators with Arguments $\star$}
+
+\textbf{Question}: Write a decorator \code{@retry(max\_attempts=3, backoff=2.0)} that retries a function on exception with exponential backoff. It should work with both sync and async functions.
+
+\textbf{What interviewers look for}: A three-level nested function (decorator factory $\to$ decorator $\to$ wrapper). Use \code{functools.wraps} to preserve the original function's metadata. For async support, use \code{asyncio.iscoroutinefunction} to detect and handle async functions differently.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import functools, asyncio, time, random, logging
+
+def retry(max_attempts: int = 3, backoff: float = 2.0,
+         exceptions: tuple = (Exception,)):
+    """Decorator factory: @retry(max_attempts=3, backoff=2.0)"""
+    def decorator(func):
+        @functools.wraps(func)  # preserves __name__, __doc__
+        async def async_wrapper(*args, **kwargs):
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return await func(*args, **kwargs)
+                except exceptions as e:
+                    if attempt == max_attempts:
+                        raise
+                    wait = backoff ** attempt + random.uniform(0, 1)
+                    logging.warning(f"{func.__name__} attempt "
+                        f"{attempt} failed: {e}. Retry in {wait:.1f}s")
+                    await asyncio.sleep(wait)
+
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    if attempt == max_attempts:
+                        raise
+                    wait = backoff ** attempt + random.uniform(0, 1)
+                    logging.warning(f"{func.__name__} attempt "
+                        f"{attempt} failed: {e}. Retry in {wait:.1f}s")
+                    time.sleep(wait)
+
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        return sync_wrapper
+    return decorator
+
+# Usage:
+@retry(max_attempts=5, backoff=1.5, exceptions=(TimeoutError,))
+async def call_llm(prompt: str) -> str:
+    ...  # actual API call
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Mock the decorated function to raise on the first $N-1$ calls and succeed on the $N$th. Assert retry count matches. Test that non-retryable exceptions propagate immediately. Verify \code{functools.wraps} preserves metadata: \code{assert call\_llm.\_\_name\_\_ == 'call\_llm'}.
+    \item \textbf{Jitter}: The \code{random.uniform(0, 1)} adds jitter to prevent thundering herd when multiple clients retry simultaneously after a provider outage.
+    \item \textbf{Production enhancement}: Add circuit breaker integration---if $>5$ consecutive failures, stop retrying and fail fast. Track retry rates as a metric; a spike in retries indicates upstream degradation.
+    \item \textbf{Metrics}: Retry count distribution, final success rate, time spent in backoff waits, exception type frequency.
+\end{itemize}
+
+
+\section{Concurrency and Parallelism}
+
+\subsection{Q11: \code{asyncio} for LLM API Calls $\star$}
+
+\textbf{Question}: You need to make 1,000 LLM API calls as fast as possible, but the API has a rate limit of 100 requests per second. Design the concurrent execution strategy.
+
+\textbf{What interviewers look for}: Use \code{asyncio} with \code{aiohttp} and a semaphore (\code{asyncio.Semaphore(100)}) to limit concurrent requests. Add retry logic with exponential backoff for rate limit errors (HTTP 429). Use \code{asyncio.gather()} to await all tasks.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import asyncio, aiohttp, time
+from dataclasses import dataclass, field
+
+@dataclass
+class RateLimitedCaller:
+    max_concurrent: int = 100
+    max_retries: int = 3
+    results: list = field(default_factory=list)
+    _sem: asyncio.Semaphore = field(init=False)
+    _errors: int = 0
+
+    def __post_init__(self):
+        self._sem = asyncio.Semaphore(self.max_concurrent)
+
+    async def _call_one(self, session: aiohttp.ClientSession,
+                        prompt: str, idx: int) -> dict:
+        async with self._sem:  # limits to max_concurrent
+            for attempt in range(self.max_retries):
+                try:
+                    async with session.post(
+                        "https://api.example.com/v1/completions",
+                        json={"prompt": prompt},
+                        timeout=aiohttp.ClientTimeout(total=30)
+                    ) as resp:
+                        if resp.status == 429:  # rate limited
+                            wait = 2 ** attempt
+                            await asyncio.sleep(wait)
+                            continue
+                        resp.raise_for_status()
+                        return await resp.json()
+                except aiohttp.ClientError as e:
+                    if attempt == self.max_retries - 1:
+                        self._errors += 1
+                        return {"error": str(e), "index": idx}
+                    await asyncio.sleep(2 ** attempt)
+
+    async def call_all(self, prompts: list[str]) -> list[dict]:
+        async with aiohttp.ClientSession() as session:
+            tasks = [self._call_one(session, p, i)
+                     for i, p in enumerate(prompts)]
+            return await asyncio.gather(*tasks)
+
+# Usage:
+async def main():
+    caller = RateLimitedCaller(max_concurrent=100)
+    prompts = [f"Summarize document {i}" for i in range(1000)]
+    results = await caller.call_all(prompts)
+    print(f"Success: {1000 - caller._errors}, Errors: {caller._errors}")
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Why Semaphore, not TaskGroup?}: Semaphore limits \emph{concurrent} requests without limiting total parallelism. All 1,000 tasks are created immediately; the semaphore gates execution. \code{TaskGroup} would cancel all tasks on any failure---undesirable here.
+    \item \textbf{Token-based rate limiting}: The above limits by request count. Real APIs limit by tokens-per-minute (TPM). Enhancement: track cumulative tokens sent, pause when approaching the TPM limit.
+    \item \textbf{Load balancing}: If using multiple API keys or providers, distribute requests across keys with round-robin or least-used routing.
+    \item \textbf{Metrics}: Requests/second achieved, p50/p99 latency, 429 rate, error rate, total wall-clock time, cost per request.
+    \item \textbf{Traffic splitting}: Route 80\% to a fast/cheap model and 20\% to a frontier model for quality comparison (shadow evaluation).
+\end{itemize}
+
+\subsection{Q12: \code{multiprocessing} for Data Preprocessing}
+
+\textbf{Question}: You need to preprocess 10 million documents using a CPU-intensive tokenization function. Design a multiprocessing pipeline that utilizes all available cores while maintaining document order.
+
+\textbf{What interviewers look for}: Use \code{multiprocessing.Pool.imap} (not \code{imap\_unordered}) to maintain order. Consider \code{chunksize} optimization for reduced IPC overhead. Discuss the pickle serialization constraint and how to handle non-picklable objects.
+
+\subsection{Q13: Producer-Consumer Pipeline}
+
+\textbf{Question}: Design a producer-consumer pipeline where producers read data from multiple sources, a processing stage transforms it, and consumers write results. Handle backpressure.
+
+\textbf{What interviewers look for}: Use \code{queue.Queue} (or \code{asyncio.Queue}) with a bounded size for backpressure. When the queue is full, producers block, naturally throttling input. Discuss sentinel values for shutdown signaling.
+
+
+\section{Object-Oriented Design}
+
+\subsection{Q14: The Strategy Pattern for Model Selection $\star$}
+
+\textbf{Question}: Design a model routing system where different LLM providers (OpenAI, Anthropic, Google) can be selected at runtime based on request characteristics. New providers should be addable without modifying existing code.
+
+\textbf{What interviewers look for}: Strategy pattern with a common interface (\code{Protocol} or ABC), concrete implementations per provider, and a router that selects the strategy based on request properties. This is the Cognitive Router pattern from production AI systems.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+from typing import Protocol, runtime_checkable
+from dataclasses import dataclass
+import random
+
+@runtime_checkable
+class LLMProvider(Protocol):
+    """Any class with these methods satisfies this Protocol."""
+    def complete(self, prompt: str, **kwargs) -> str: ...
+    @property
+    def cost_per_1k_tokens(self) -> float: ...
+    @property
+    def name(self) -> str: ...
+
+@dataclass
+class OpenAIProvider:
+    model: str = "gpt-5.5"
+    name: str = "openai"
+    cost_per_1k_tokens: float = 0.05
+    def complete(self, prompt: str, **kwargs) -> str:
+        # Real implementation calls OpenAI API
+        return f"[OpenAI response to: {prompt[:30]}...]"
+
+@dataclass
+class AnthropicProvider:
+    model: str = "claude-opus-4.8"
+    name: str = "anthropic"
+    cost_per_1k_tokens: float = 0.04
+    def complete(self, prompt: str, **kwargs) -> str:
+        return f"[Anthropic response to: {prompt[:30]}...]"
+
+@dataclass
+class GoogleProvider:
+    model: str = "gemini-3.5-flash"
+    name: str = "google"
+    cost_per_1k_tokens: float = 0.001
+    def complete(self, prompt: str, **kwargs) -> str:
+        return f"[Google response to: {prompt[:30]}...]"
+
+class ModelRouter:
+    def __init__(self, providers: list[LLMProvider]):
+        self._providers = {p.name: p for p in providers}
+        self._fallback_order = sorted(
+            providers, key=lambda p: p.cost_per_1k_tokens)
+
+    def classify_complexity(self, prompt: str) -> str:
+        """Simple heuristic; production uses a classifier."""
+        if len(prompt.split()) < 20:
+            return "low"
+        elif len(prompt.split()) < 100:
+            return "medium"
+        return "high"
+
+    def route(self, prompt: str, **kwargs) -> str:
+        complexity = self.classify_complexity(prompt)
+        tier_map = {
+            "low": "google",      # fast, cheap
+            "medium": "anthropic", # balanced
+            "high": "openai",      # frontier quality
+        }
+        provider = self._providers[tier_map[complexity]]
+        try:
+            return provider.complete(prompt, **kwargs)
+        except Exception:
+            # Cascade fallback through providers
+            for fallback in self._fallback_order:
+                if fallback.name != provider.name:
+                    try:
+                        return fallback.complete(prompt, **kwargs)
+                    except Exception:
+                        continue
+            raise RuntimeError("All providers failed")
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Why Protocol over ABC?}: Protocol enables structural typing---any class with \code{complete()}, \code{cost\_per\_1k\_tokens}, and \code{name} satisfies it, even third-party classes you don't control. ABC requires explicit inheritance.
+    \item \textbf{Real-time model selection}: Replace \code{classify\_complexity()} with a lightweight classifier (fine-tuned DistilBERT, $<$5ms) trained on (prompt, best\_model) pairs from evaluation data.
+    \item \textbf{Traffic splitting}: Add A/B routing: 90\% production model, 10\% candidate model. Compare quality scores offline. Promote candidate when it statistically matches or exceeds production.
+    \item \textbf{Metrics}: Per-provider latency, cost, error rate, quality score (from LLM-as-Judge). Track routing decisions: what percentage of traffic goes to each tier.
+    \item \textbf{Circuit breaker per provider}: If a provider returns $>$5 errors in 60 seconds, mark it as unhealthy and skip it for 30 seconds (half-open state).
+\end{itemize}
+
+\subsection{Q15: Abstract Base Classes vs. Protocols}
+
+\textbf{Question}: When should you use \code{ABC} vs. \code{Protocol} for defining interfaces in Python? Give an example where each is appropriate.
+
+\textbf{What interviewers look for}: \code{ABC} is nominal typing---classes must explicitly inherit. \code{Protocol} (PEP 544) is structural typing---any class with matching methods satisfies the protocol, even without inheritance. Use ABC when you control the class hierarchy; use Protocol when you want duck typing with type-checker support.
+
+\subsection{Q16: Dataclasses, Pydantic, and Attrs}
+
+\textbf{Question}: Compare Python's \code{dataclasses}, \code{Pydantic BaseModel}, and \code{attrs} for defining data objects in an AI pipeline. When would you choose each?
+
+\textbf{What interviewers look for}: \code{dataclasses}: stdlib, lightweight, no validation. \code{Pydantic}: runtime validation, serialization, JSON schema generation---ideal for API contracts and LLM output parsing. \code{attrs}: fastest, most flexible, but third-party. In AI systems, Pydantic dominates because of its validation capabilities for parsing LLM outputs.
+
+
+\section{Functional Programming and Metaprogramming}
+
+\subsection{Q17: Higher-Order Functions for Pipeline Composition}
+
+\textbf{Question}: Design a composable text preprocessing pipeline where individual steps (lowercase, remove punctuation, tokenize, filter stopwords) can be chained together. Adding or removing steps should require changing a single line.
+
+\textbf{What interviewers look for}: Use \code{functools.reduce} to compose functions, or implement a \code{Pipeline} class with an \code{\_\_call\_\_} method. Discuss the trade-off between function composition (simpler) and class-based pipelines (stateful, configurable).
+
+\subsection{Q18: Descriptors and \code{\_\_get\_\_}/\code{\_\_set\_\_}}
+
+\textbf{Question}: Implement a descriptor that validates that a model's temperature parameter is always between 0.0 and 2.0, raising a \code{ValueError} on invalid assignment.
+
+\textbf{What interviewers look for}: Understanding of Python's descriptor protocol. The descriptor's \code{\_\_set\_\_} method performs validation before storing the value. This is how frameworks like Django and SQLAlchemy implement field validation.
+
+\subsection{Q19: \code{\_\_init\_subclass\_\_} for Plugin Registration}
+
+\textbf{Question}: Design a system where new LLM tool functions are automatically registered when they subclass a \code{BaseTool} class, without requiring a decorator or manual registration call.
+
+\textbf{What interviewers look for}: Use \code{\_\_init\_subclass\_\_} to hook into class creation. Each subclass automatically registers itself in a class-level registry dictionary. This is the pattern used by many plugin systems.
+
+\subsection{Q20: Type Hints and Generic Types}
+
+\textbf{Question}: Write a generic \code{BatchProcessor[T]} class that accepts items of any type, collects them into batches of configurable size, and processes each batch using a provided callback.
+
+\textbf{What interviewers look for}: Use \code{Generic[T]} from \code{typing}. The callback should be typed as \code{Callable[[list[T]], None]}. Discuss how type hints help in large codebases by catching type errors at lint time rather than runtime.
+
+
+\section{Testing and Debugging}
+
+\subsection{Q21: Testing Non-Deterministic Functions $\star$}
+
+\textbf{Question}: How do you write unit tests for a function that calls an LLM and returns non-deterministic results? Discuss at least three strategies.
+
+\textbf{What interviewers look for}: (1) Mock the LLM call and test the surrounding logic deterministically. (2) Use property-based assertions (output is valid JSON, contains required fields) rather than exact-match assertions. (3) Run N times and assert statistical properties (accuracy $> 90\%$ across 20 runs). (4) Use snapshot testing to detect regressions even if exact outputs vary.
+
+\subsection{Q22: Debugging Memory Leaks}
+
+\textbf{Question}: Your training script's memory usage grows linearly over time until it OOMs after 10 hours. How do you diagnose and fix this?
+
+\textbf{What interviewers look for}: Use \code{tracemalloc} to snapshot memory and compare allocations over time. Common causes: accumulating tensors in a list (forgot to \code{.detach()}), circular references preventing garbage collection, or caching growing without bounds. The fix depends on the cause: explicit cleanup, weak references, or bounded caches.
+
+\subsection{Q23: Profiling a Slow Data Pipeline}
+
+\textbf{Question}: Your embedding generation pipeline processes 100 documents per second but needs to handle 1,000. How do you identify and fix the bottleneck?
+
+\textbf{What interviewers look for}: Profile with \code{cProfile} or \code{py-spy} to find the hot function. Common bottlenecks: single-threaded I/O (fix with async), CPU-bound tokenization (fix with multiprocessing), unbatched model inference (fix with dynamic batching), or GIL contention (fix with process-based parallelism).
+
+
+\section{AI/ML-Specific Python}
+
+\subsection{Q24: Implementing a Simple Tokenizer $\star$}
+
+\textbf{Question}: Implement a basic BPE (Byte Pair Encoding) tokenizer. Given a corpus of text and a target vocabulary size, return the learned merge rules and the final vocabulary.
+
+\textbf{What interviewers look for}: (1) Initialize vocabulary with individual characters. (2) Count all adjacent pairs. (3) Merge the most frequent pair. (4) Repeat until vocabulary reaches target size. Key data structure: a frequency dictionary updated efficiently after each merge.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+from collections import Counter
+
+def train_bpe(corpus: str, vocab_size: int) -> tuple[list, dict]:
+    """Train BPE tokenizer. Returns merge rules and vocabulary."""
+    # Step 1: Initialize as character-level tokens
+    words = [list(word) + ['</w>'] for word in corpus.split()]
+    merges = []
+
+    while len(set(tok for w in words for tok in w)) < vocab_size:
+        # Step 2: Count adjacent pairs across all words
+        pairs = Counter()
+        for word in words:
+            for i in range(len(word) - 1):
+                pairs[(word[i], word[i+1])] += 1
+        if not pairs:
+            break
+
+        # Step 3: Find and record the most frequent pair
+        best = max(pairs, key=pairs.get)
+        merges.append(best)
+
+        # Step 4: Merge all occurrences of the best pair
+        merged = best[0] + best[1]
+        new_words = []
+        for word in words:
+            new_word, i = [], 0
+            while i < len(word):
+                if (i < len(word) - 1 and
+                    word[i] == best[0] and word[i+1] == best[1]):
+                    new_word.append(merged)
+                    i += 2
+                else:
+                    new_word.append(word[i])
+                    i += 1
+            new_words.append(new_word)
+        words = new_words
+
+    vocab = {tok for w in words for tok in w}
+    return merges, vocab
+
+def tokenize(text: str, merges: list[tuple]) -> list[str]:
+    """Apply learned merges to tokenize new text."""
+    tokens = list(text)
+    for left, right in merges:
+        i = 0
+        while i < len(tokens) - 1:
+            if tokens[i] == left and tokens[i+1] == right:
+                tokens[i:i+2] = [left + right]
+            else:
+                i += 1
+    return tokens
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Complexity}: Training is $O(V \times N)$ where $V$ = vocab\_size and $N$ = corpus size. The bottleneck is pair counting. Production implementations (\code{tiktoken}, \code{sentencepiece}) use optimized C/Rust backends.
+    \item \textbf{Testing}: Verify roundtrip: \code{decode(tokenize(text)) == text}. Test on edge cases: empty string, single character, repeated characters, Unicode (emoji, CJK).
+    \item \textbf{Why BPE for LLMs?}: BPE balances vocabulary size (token economy for the model) with character coverage (handles unseen words via subword decomposition). Compared to WordPiece (BERT), BPE is simpler and more widely used in GPT-family models.
+    \item \textbf{Production}: Real tokenizers pre-compute merge rules into a sorted lookup table for $O(\log N)$ merge application. \code{tiktoken} uses regex-based pre-tokenization to split on whitespace/punctuation boundaries before applying BPE.
+\end{itemize}
+
+\subsection{Q25: Cosine Similarity at Scale}
+
+\textbf{Question}: Given two matrices of shape $(m, d)$ and $(n, d)$ representing embeddings, compute all pairwise cosine similarities efficiently. Discuss the memory and compute trade-offs.
+
+\textbf{What interviewers look for}: Normalize each row to unit length, then compute the matrix product: $\text{similarities} = A_{\text{norm}} \cdot B_{\text{norm}}^T$. The result is an $(m, n)$ matrix. Discuss memory: for $m = n = 100K$ and float32, this matrix is 40 GB. Solution: compute in blocks or use approximate methods (FAISS, ScaNN).
+
+\subsection{Q26: Implementing Softmax with Numerical Stability}
+
+\textbf{Question}: Implement the softmax function. Then explain why a naive implementation fails and how to fix it.
+
+\textbf{What interviewers look for}: Naive: \code{exp(x) / sum(exp(x))} overflows for large values. Fix: subtract the maximum value first: \code{exp(x - max(x)) / sum(exp(x - max(x)))}. This is numerically identical but avoids overflow because the largest exponent is $e^0 = 1$.
+
+\subsection{Q27: Efficient Batching for API Calls}
+
+\textbf{Question}: You're building a service that receives individual text classification requests but needs to batch them for efficient GPU inference. Design a dynamic batching system with a configurable maximum batch size and maximum wait time.
+
+\textbf{What interviewers look for}: A background thread or asyncio task that collects requests into a batch, triggers inference when either the batch is full or the timeout expires, and distributes results back to the waiting callers using \code{asyncio.Future} or \code{threading.Event}.
+
+
+\section{System Design with Python}
+
+\subsection{Q28: Rate Limiter $\star$}
+
+\textbf{Question}: Implement a token bucket rate limiter that supports both per-user and global rate limits. It should be thread-safe.
+
+\textbf{What interviewers look for}: Token bucket algorithm with \code{threading.Lock} for thread safety. The bucket refills at a constant rate. Each request consumes one token. If the bucket is empty, the request is rejected. Per-user limits use a dictionary of buckets keyed by user ID.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import time, threading
+from collections import defaultdict
+
+class TokenBucket:
+    def __init__(self, rate: float, capacity: int):
+        self.rate = rate          # tokens per second
+        self.capacity = capacity  # max burst size
+        self._tokens = capacity
+        self._last_refill = time.monotonic()
+        self._lock = threading.Lock()
+
+    def _refill(self) -> None:
+        now = time.monotonic()
+        elapsed = now - self._last_refill
+        self._tokens = min(
+            self.capacity,
+            self._tokens + elapsed * self.rate
+        )
+        self._last_refill = now
+
+    def consume(self, tokens: int = 1) -> bool:
+        with self._lock:
+            self._refill()
+            if self._tokens >= tokens:
+                self._tokens -= tokens
+                return True  # allowed
+            return False     # rejected
+
+class RateLimiter:
+    """Per-user + global rate limiting."""
+    def __init__(self, global_rate: float = 1000,
+                 global_capacity: int = 1000,
+                 per_user_rate: float = 10,
+                 per_user_capacity: int = 20):
+        self._global = TokenBucket(global_rate, global_capacity)
+        self._per_user_rate = per_user_rate
+        self._per_user_cap = per_user_capacity
+        self._users: dict[str, TokenBucket] = defaultdict(
+            lambda: TokenBucket(per_user_rate, per_user_capacity)
+        )
+        self._lock = threading.Lock()
+
+    def allow(self, user_id: str, tokens: int = 1) -> bool:
+        # Check per-user limit first (fail fast)
+        with self._lock:
+            user_bucket = self._users[user_id]
+        if not user_bucket.consume(tokens):
+            return False
+        # Then check global limit
+        return self._global.consume(tokens)
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Verify burst behavior: consume \code{capacity} tokens instantly (all succeed), then the next one fails. Verify refill: after waiting \code{1/rate} seconds, one more token is available. Test thread safety: spawn 100 threads all calling \code{consume()} simultaneously.
+    \item \textbf{Distributed rate limiting}: In production, rate limits must be enforced across multiple server instances. Use Redis with \code{INCR} + \code{EXPIRE} for a sliding window counter, or Redis-backed token bucket with Lua scripts for atomicity.
+    \item \textbf{LLM-specific rate limiting}: Rate limit by tokens-per-minute (TPM), not requests-per-minute (RPM). A single long-context request might consume 100K tokens. The \code{tokens} parameter enables this: \code{limiter.allow(user, tokens=estimated\_token\_count)}.
+    \item \textbf{Metrics}: Request acceptance rate, rejection rate by user, global utilization, burst frequency, queue depth (if you add a wait mode).
+    \item \textbf{Load balancing}: Combine with a model router---when rate limited on one provider, route to an alternative provider rather than rejecting the request.
+\end{itemize}
+
+\subsection{Q29: Circuit Breaker}
+
+\textbf{Question}: Implement the circuit breaker pattern for an LLM API client. The circuit should open after 5 consecutive failures, stay open for 30 seconds, then try a single request (half-open state).
+
+\textbf{What interviewers look for}: A state machine with three states: CLOSED (normal), OPEN (rejecting all requests), HALF-OPEN (allowing one test request). Track consecutive failures and last failure time. This is the AI Circuit Breaker pattern from Chapter~\ref{ch:app-architecture}.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import time, threading
+from enum import Enum, auto
+
+class State(Enum):
+    CLOSED = auto()     # normal operation
+    OPEN = auto()       # all requests rejected
+    HALF_OPEN = auto()  # testing one request
+
+class CircuitBreaker:
+    def __init__(self, failure_threshold: int = 5,
+                 recovery_timeout: float = 30.0):
+        self._state = State.CLOSED
+        self._failure_count = 0
+        self._failure_threshold = failure_threshold
+        self._recovery_timeout = recovery_timeout
+        self._last_failure_time = 0.0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> State:
+        with self._lock:
+            if (self._state == State.OPEN and
+                time.monotonic() - self._last_failure_time
+                    > self._recovery_timeout):
+                self._state = State.HALF_OPEN
+            return self._state
+
+    def call(self, func, *args, **kwargs):
+        """Execute func through the circuit breaker."""
+        current_state = self.state
+
+        if current_state == State.OPEN:
+            raise RuntimeError(
+                f"Circuit OPEN. Retry after "
+                f"{self._recovery_timeout}s.")
+
+        try:
+            result = func(*args, **kwargs)
+            self._on_success()
+            return result
+        except Exception as e:
+            self._on_failure()
+            raise
+
+    def _on_success(self) -> None:
+        with self._lock:
+            self._failure_count = 0
+            self._state = State.CLOSED
+
+    def _on_failure(self) -> None:
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.monotonic()
+            if self._failure_count >= self._failure_threshold:
+                self._state = State.OPEN
+
+# Usage with model router:
+cb = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
+try:
+    response = cb.call(openai_client.complete, prompt="...")
+except RuntimeError:  # circuit open
+    response = fallback_provider.complete(prompt="...")  # cascade
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Use a mock function that raises on the first $N$ calls. Assert state transitions: CLOSED $\to$ OPEN after 5 failures, OPEN $\to$ HALF\_OPEN after timeout, HALF\_OPEN $\to$ CLOSED on success, HALF\_OPEN $\to$ OPEN on failure.
+    \item \textbf{Integration with model routing}: Each LLM provider gets its own circuit breaker. The model router checks circuit state before routing: if the preferred provider's circuit is open, cascade to the next provider immediately (no wasted latency).
+    \item \textbf{Metrics}: State transitions per hour, time spent in OPEN state, failure rate that triggered opening, recovery success rate.
+    \item \textbf{Advanced}: Add a ``sliding window'' variant that opens on $X$ failures in $Y$ seconds (not just consecutive). Add per-error-type thresholds: 429s (rate limit) might have a lower threshold than 500s (server error).
+\end{itemize}
+
+\subsection{Q30: Configuration Management}
+
+\textbf{Question}: Design a configuration system for an AI application that supports: (1) environment-specific configs (dev/staging/prod), (2) runtime overrides without redeployment, (3) type-safe access, and (4) secrets management.
+
+\textbf{What interviewers look for}: Use Pydantic \code{BaseSettings} for type-safe config with environment variable overrides. Layer: defaults $\to$ config file $\to$ environment variables $\to$ runtime overrides. Secrets via a dedicated secrets manager, never in config files.
+
+
+\section{Advanced Topics}
+
+\subsection{Q31--Q35: Quick-Fire Round}
+
+\begin{enumerate}[leftmargin=*]
+    \item[Q31.] Explain the difference between \code{is} and \code{==}. When does \code{a is b} return True for integers?
+    
+    \textbf{Answer}: \code{is} checks identity (same object in memory); \code{==} checks equality (same value). CPython interns small integers (-5 to 256), so \code{a is b} is True for integers in that range.
+    
+    \item[Q32.] What is the output of \code{[x**2 for x in range(5) if x \% 2]} and why?
+    
+    \textbf{Answer}: \code{[1, 9]} --- the condition filters to odd numbers (1, 3), then squares them.
+    
+    \item[Q33.] Explain the mutable default argument trap and how to avoid it.
+    
+    \textbf{Answer}: \code{def f(lst=[]):} creates one list object shared across all calls. Fix: use \code{def f(lst=None): lst = lst or []}.
+    
+    \item[Q34.] What does \code{yield from} do, and how does it differ from \code{yield}?
+    
+    \textbf{Answer}: \code{yield from iterable} delegates to a sub-generator, forwarding \code{send()} and \code{throw()} calls. Equivalent to \code{for item in iterable: yield item}, but also handles generator exceptions and return values.
+    
+    \item[Q35.] What is \code{\_\_all\_\_} and why is it important for library design?
+    
+    \textbf{Answer}: \code{\_\_all\_\_} defines the public API of a module. Only names in \code{\_\_all\_\_} are exported by \code{from module import *}. Essential for maintaining backward compatibility and hiding internal implementation details.
+\end{enumerate}
+
+
+\section{Coding Challenges}
+
+\subsection{Q36--Q50: Implementation Exercises}
+
+These questions require writing complete, working Python code. In an interview, focus on correctness first, then optimize.
+
+\begin{enumerate}[leftmargin=*]
+    \item[Q36.] \textbf{JSON Schema Validator}: Write a function that validates a nested JSON object against a schema definition (types, required fields, nested objects, arrays). This is the core of LLM output validation.
+
+    \item[Q37.] \textbf{Trie for Prefix Matching}: Implement a trie that supports \code{insert}, \code{search}, and \code{starts\_with}. Used in tokenizer vocabulary lookup.
+
+    \item[Q38.] \textbf{Async Retry with Backoff}: Implement an async function that retries API calls with exponential backoff, jitter, and a maximum retry count. Handle both timeout and rate-limit errors differently.
+
+    \item[Q39.] \textbf{Rolling Window Statistics}: Compute rolling mean, variance, and percentiles over a stream of latency measurements using $O(1)$ memory per window position.
+
+    \item[Q40.] \textbf{Thread-Safe Singleton}: Implement a thread-safe singleton pattern for a database connection pool. Discuss why double-checked locking is necessary.
+
+    \item[Q41.] \textbf{Graph BFS for Dependency Resolution}: Given a DAG of package dependencies, return a valid installation order (topological sort). Detect and report circular dependencies.
+
+    \item[Q42.] \textbf{Custom Iterator for Paginated API}: Write an iterator that transparently handles pagination from a REST API, yielding individual items while fetching pages on demand.
+
+    \item[Q43.] \textbf{Merge K Sorted Lists}: Given $K$ sorted lists, merge them into one sorted list using a min-heap. This is the core algorithm behind external merge sort and distributed log aggregation.
+
+    \item[Q44.] \textbf{Text Chunking with Overlap}: Implement a text chunker that splits a document into chunks of $N$ tokens with $M$ token overlap, respecting sentence boundaries.
+
+    \item[Q45.] \textbf{Consistent Hashing}: Implement consistent hashing for distributing embedding computation across $K$ worker nodes. Handle node addition and removal with minimal key redistribution.
+
+    \item[Q46.] \textbf{Levenshtein Distance}: Implement edit distance with dynamic programming. Discuss how it's used for fuzzy matching in retrieval systems.
+
+    \item[Q47.] \textbf{Bloom Filter}: Implement a Bloom filter with configurable false positive rate. Discuss its use in deduplication of training data at scale.
+
+    \item[Q48.] \textbf{Custom \code{groupby} with Aggregation}: Implement a function equivalent to \code{pandas.groupby().agg()} using only standard Python, handling multiple aggregation functions per column.
+
+    \item[Q49.] \textbf{Bounded Thread Pool Executor}: Implement a custom thread pool that limits both the number of concurrent threads and the size of the pending task queue (backpressure).
+
+    \item[Q50.] \textbf{LLM Response Parser}: Write a robust parser that extracts structured data (JSON, XML, or key-value pairs) from LLM responses, handling common malformations: missing closing brackets, markdown code fences, trailing commas, and single-quoted strings.
+\end{enumerate}
+
+
+\section{CPython Internals Deep Dive}
+
+These questions are frequently asked at Google DeepMind, Meta FAIR, and infrastructure-heavy AI roles where understanding the runtime matters as much as writing correct code.
+
+\subsection{Q51: Free-Threaded Python and PEP 703 $\star$}
+
+\textbf{Question}: Python 3.13+ offers an experimental free-threaded build. Explain: (a) What changes in the memory model? (b) How does it affect reference counting? (c) What breaks in existing C extensions? (d) When should you use it vs. \code{multiprocessing}?
+
+\textbf{What interviewers look for}: Free-threading replaces the GIL with per-object locks and biased reference counting (the thread that created an object does cheap local refcount operations; other threads use atomic operations). Existing C extensions that assume the GIL protects shared state will have data races. Use free-threading for CPU-bound Python code that shares large data structures (e.g., in-memory model weights); use multiprocessing when isolation is more important than shared-memory performance.
+
+\textbf{Why this matters at Google DeepMind}: TPU/GPU orchestration code is often CPU-bound Python that coordinates across devices. Free-threading could eliminate serialization overhead for shared-memory coordination.
+
+\subsection{Q52: CPython's Reference Counting vs. Garbage Collection}
+
+\textbf{Question}: Python uses both reference counting and a cyclic garbage collector. Explain: (a) When does each trigger? (b) What is a reference cycle, and why can't refcounting alone handle it? (c) How do you force garbage collection, and when would you need to?
+
+\textbf{What interviewers look for}: Refcounting frees objects immediately when count reaches zero (deterministic). The cyclic GC runs periodically to handle reference cycles (A $\to$ B $\to$ A). In AI pipelines, large tensors in cycles can cause OOM; use \code{weakref} or explicit \code{del} to break cycles. \code{gc.collect()} forces a collection sweep---useful after deleting large model objects.
+
+\subsection{Q53: The Import System and \code{\_\_import\_\_}}
+
+\textbf{Question}: Explain Python's import machinery: finders, loaders, and \code{sys.meta\_path}. How would you implement a custom importer that loads modules from a database or remote URL?
+
+\textbf{What interviewers look for}: The import system uses a chain of finders (\code{sys.meta\_path}) that return a module spec, which a loader then uses to execute the module code. Custom importers implement the \code{MetaPathFinder} and \code{Loader} protocols. Practical use case: loading prompt templates or model configs from a centralized store at import time.
+
+\subsection{Q54: Method Resolution Order (MRO) and C3 Linearization $\star$}
+
+\textbf{Question}: Given a diamond inheritance hierarchy (classes A, B, C, D where D inherits from both B and C, which both inherit from A), explain the MRO. What algorithm does Python use, and why?
+
+\textbf{What interviewers look for}: Python uses C3 linearization, which guarantees: (1) children come before parents, (2) if a class inherits from multiple parents, their order is preserved, (3) no class appears twice. The MRO for D is [D, B, C, A]. This is critical for understanding how \code{super()} calls work in complex class hierarchies (common in framework design).
+
+\subsection{Q55: \code{\_\_new\_\_} vs. \code{\_\_init\_\_} and Immutable Types}
+
+\textbf{Question}: Explain the difference between \code{\_\_new\_\_} and \code{\_\_init\_\_}. When must you override \code{\_\_new\_\_} instead of \code{\_\_init\_\_}? Implement an immutable \code{FrozenConfig} class that raises an error on attribute modification after creation.
+
+\textbf{What interviewers look for}: \code{\_\_new\_\_} creates the instance; \code{\_\_init\_\_} initializes it. For immutable types (subclassing \code{tuple}, \code{str}, \code{frozenset}), you must override \code{\_\_new\_\_} because the object is already immutable by the time \code{\_\_init\_\_} runs. For \code{FrozenConfig}, use \code{\_\_setattr\_\_} to raise \code{AttributeError} after a flag is set in \code{\_\_init\_\_}, or use \code{@dataclass(frozen=True)}.
+
+
+\section{Advanced Async Patterns}
+
+These questions reflect production patterns at Anthropic, OpenAI, and any company running high-concurrency LLM inference services.
+
+\subsection{Q56: Structured Concurrency with \code{asyncio.TaskGroup} $\star$}
+
+\textbf{Question}: Compare \code{asyncio.gather()} vs. \code{asyncio.TaskGroup} (Python 3.11+). When does TaskGroup provide stronger guarantees? Implement a parallel document processor that processes N documents concurrently, cancels all tasks if any one fails, and collects results.
+
+\textbf{What interviewers look for}: \code{gather()} returns all results but doesn't cancel siblings on failure (by default). \code{TaskGroup} provides structured concurrency: if any task raises an exception, all other tasks in the group are cancelled and the exception is propagated. This prevents ``orphan tasks'' that continue running after a failure---critical in production inference pipelines.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import asyncio
+from dataclasses import dataclass, field
+
+@dataclass
+class ProcessResult:
+    doc_id: str
+    output: str
+    success: bool = True
+    error: str | None = None
+
+async def process_doc(doc: dict) -> ProcessResult:
+    """Simulate document processing."""
+    await asyncio.sleep(0.1)  # simulate I/O
+    return ProcessResult(doc_id=doc["id"],
+                         output=f"Processed {doc['id']}")
+
+async def parallel_process_strict(
+    docs: list[dict]
+) -> list[ProcessResult]:
+    """TaskGroup: cancels ALL if ANY fails."""
+    results = []
+    async with asyncio.TaskGroup() as tg:
+        tasks = [
+            tg.create_task(process_doc(doc))
+            for doc in docs
+        ]
+    # Only reached if ALL tasks succeed
+    return [t.result() for t in tasks]
+
+async def parallel_process_resilient(
+    docs: list[dict],
+    max_concurrent: int = 20
+) -> list[ProcessResult]:
+    """Semaphore + gather: tolerates individual failures."""
+    sem = asyncio.Semaphore(max_concurrent)
+    async def safe_process(doc: dict) -> ProcessResult:
+        async with sem:
+            try:
+                return await process_doc(doc)
+            except Exception as e:
+                return ProcessResult(
+                    doc_id=doc["id"],
+                    output="", success=False,
+                    error=str(e))
+    return await asyncio.gather(
+        *[safe_process(d) for d in docs])
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{When to use which}: \code{TaskGroup} for operations where partial failure is unacceptable (e.g., multi-model consensus---if one model fails, the whole result is invalid). \code{gather} with error handling for operations where partial results are useful (e.g., batch embedding---process what you can, retry failures later).
+    \item \textbf{Testing}: Test strict mode: inject a failure in one task, verify all others are cancelled. Test resilient mode: inject a failure, verify the other tasks complete and the failure is captured in the result.
+    \item \textbf{Metrics}: Task completion rate, failure rate, p50/p99 latency, concurrency utilization (how many of the \code{max\_concurrent} slots are used).
+\end{itemize}
+
+\subsection{Q57: Async Generators for Streaming LLM Responses}
+
+\textbf{Question}: Implement an async generator that streams tokens from an LLM API (using SSE/Server-Sent Events), buffers them into complete sentences, and yields each sentence as it completes. Handle connection timeouts and partial responses gracefully.
+
+\textbf{What interviewers look for}: \code{async def stream\_sentences()} using \code{async for chunk in response.aiter\_text()}. Buffer tokens until a sentence boundary (`.`, `!`, `?`) is detected. On timeout, yield the buffer as a partial sentence and close cleanly. Use \code{async with} for connection lifecycle.
+
+\subsection{Q58: Event Loop Internals}
+
+\textbf{Question}: Explain what happens when you call \code{await asyncio.sleep(0)}. How does the event loop schedule tasks internally? What is the difference between \code{loop.call\_soon()} and \code{loop.call\_later()}?
+
+\textbf{What interviewers look for}: \code{await asyncio.sleep(0)} yields control to the event loop, allowing other scheduled tasks to run---it's a cooperative yield point. The event loop uses an internal ready queue (for \code{call\_soon}) and a scheduled heap (for \code{call\_later}). Understanding this is essential for debugging ``blocked event loop'' issues in async LLM servers.
+
+\subsection{Q59: Cancellation and Timeouts}
+
+\textbf{Question}: Your LLM API wrapper must enforce a 30-second timeout per request, clean up resources on cancellation, and distinguish between user-initiated cancellation and timeout cancellation. Implement this.
+
+\textbf{What interviewers look for}: Use \code{asyncio.timeout(30)} (Python 3.11+) or \code{asyncio.wait\_for()}. Handle \code{asyncio.CancelledError} in a \code{try/finally} block to clean up resources. Distinguish timeout (\code{TimeoutError}) from cancellation (\code{CancelledError}). Key: \code{CancelledError} should generally be re-raised, not swallowed.
+
+\subsection{Q60: Building an Async Connection Pool}
+
+\textbf{Question}: Implement an async connection pool for database connections with: maximum size, connection health checks, idle timeout, and graceful shutdown. It should work as an async context manager.
+
+\textbf{What interviewers look for}: Use \code{asyncio.Queue} as the backing pool. \code{acquire()} pops from the queue (blocking if empty and at max size). \code{release()} checks connection health before returning to the pool. \code{\_\_aenter\_\_}/\code{\_\_aexit\_\_} for context manager support. A background task reaps idle connections.
+
+
+\section{Data Engineering with Python}
+
+Questions in this section are common at Google, Meta, LinkedIn, and Stripe---companies that process massive datasets through Python-orchestrated pipelines.
+
+\subsection{Q61: NumPy Broadcasting and Vectorization $\star$}
+
+\textbf{Question}: A colleague wrote a nested Python loop to compute pairwise distances between 10,000 embeddings. It takes 45 minutes. Rewrite it using NumPy vectorization and explain the speedup.
+
+\textbf{What interviewers look for}: Replace nested loops with broadcasting: \code{dists = np.sqrt(((A[:, None, :] - A[None, :, :])**2).sum(axis=-1))}. Or better: use the algebraic expansion $\|a-b\|^2 = \|a\|^2 + \|b\|^2 - 2a \cdot b$ to compute via matrix multiplication. Speedup: 100--1000$\times$ because NumPy operates in C with SIMD instructions, bypassing the interpreter loop overhead.
+
+\subsection{Q62: Pandas Performance Anti-Patterns}
+
+\textbf{Question}: Identify and fix the performance issues in this Pandas code that processes a 5M-row DataFrame: (a) iterating with \code{iterrows()}, (b) using \code{apply()} with a Python lambda, (c) concatenating DataFrames in a loop, (d) using object dtype for numeric columns.
+
+\textbf{What interviewers look for}: (a) Replace \code{iterrows()} with vectorized operations---1000$\times$ faster. (b) Replace \code{apply()} with built-in vectorized methods or \code{np.where()}. (c) Collect in a list and call \code{pd.concat()} once---quadratic $\to$ linear. (d) Use \code{pd.to\_numeric()} and appropriate dtypes (\code{float32} instead of \code{float64}, \code{category} for string columns).
+
+\subsection{Q63: Apache Arrow and Zero-Copy Data Exchange}
+
+\textbf{Question}: Explain how Apache Arrow enables zero-copy data exchange between Python, R, and Spark. How does \code{pyarrow} differ from Pandas for large-scale data processing?
+
+\textbf{What interviewers look for}: Arrow uses a columnar memory format that is language-agnostic and zero-copy (no serialization/deserialization when passing between systems). Pandas 2.0+ can use Arrow-backed dtypes for better memory efficiency and performance. Arrow is essential in modern ML pipelines (Hugging Face datasets, Spark integration, Parquet I/O).
+
+\subsection{Q64: Memory-Mapped Files for Large Datasets}
+
+\textbf{Question}: You have a 500 GB dataset that doesn't fit in memory. Implement a data loader using memory-mapped files (\code{mmap} or \code{numpy.memmap}) that allows random access to any record without loading the full file.
+
+\textbf{What interviewers look for}: \code{numpy.memmap} creates a virtual memory mapping---the OS loads pages on demand. Random access is $O(1)$ for the page containing the requested offset. Key trade-offs: sequential access is slower than streaming (page faults), but random access is dramatically faster than seeking in a file. This is how Hugging Face datasets handles large-scale training data.
+
+\subsection{Q65: Implementing MapReduce in Python}
+
+\textbf{Question}: Implement a simple MapReduce framework using \code{multiprocessing}. Given a mapper function and a reducer function, partition input data across workers, execute mappers in parallel, shuffle/sort intermediate results, and execute reducers.
+
+\textbf{What interviewers look for}: Map phase: \code{Pool.map(mapper, chunks)}. Shuffle phase: group intermediate key-value pairs by key (using \code{defaultdict(list)}). Reduce phase: \code{Pool.starmap(reducer, grouped.items())}. Discuss partitioning strategy, handling skewed keys, and the trade-off between parallelism and IPC overhead.
+
+
+\section{Production Python}
+
+These questions test whether you can build systems that run reliably in production---not just scripts that work on your laptop. Common at Stripe, GitHub, Anthropic, and any company with a production Python backend.
+
+\subsection{Q66: Dependency Injection Without a Framework $\star$}
+
+\textbf{Question}: Design a lightweight dependency injection system in Python that: (a) allows registering implementations for interfaces, (b) supports both singleton and transient lifecycles, (c) resolves dependencies recursively, and (d) uses type hints for automatic wiring.
+
+\textbf{What interviewers look for}: Use \code{typing.get\_type\_hints()} to inspect constructor parameters. A registry maps interface types to factory functions. Singleton scope stores instances in a dictionary keyed by type. Transient scope creates a new instance each time. Recursive resolution: if a dependency's constructor has parameters, resolve those first.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import typing, inspect
+from enum import Enum, auto
+
+class Scope(Enum):
+    SINGLETON = auto()  # one instance per container
+    TRANSIENT = auto()  # new instance per resolve
+
+class Container:
+    def __init__(self):
+        self._registry: dict[type, tuple[type, Scope]] = {}
+        self._singletons: dict[type, object] = {}
+
+    def register(self, interface: type, impl: type,
+                 scope: Scope = Scope.TRANSIENT) -> None:
+        self._registry[interface] = (impl, scope)
+
+    def resolve(self, interface: type) -> object:
+        if interface not in self._registry:
+            raise KeyError(
+                f"No registration for {interface.__name__}")
+
+        impl, scope = self._registry[interface]
+
+        # Singleton check
+        if scope == Scope.SINGLETON:
+            if interface in self._singletons:
+                return self._singletons[interface]
+
+        # Auto-wire: inspect constructor type hints
+        hints = typing.get_type_hints(
+            impl.__init__) if hasattr(impl, '__init__') else {}
+        hints.pop('return', None)
+
+        kwargs = {}
+        for param_name, param_type in hints.items():
+            if param_type in self._registry:
+                kwargs[param_name] = self.resolve(param_type)
+
+        instance = impl(**kwargs)
+
+        if scope == Scope.SINGLETON:
+            self._singletons[interface] = instance
+
+        return instance
+
+# Usage example:
+from abc import ABC, abstractmethod
+
+class ModelClient(ABC):
+    @abstractmethod
+    def complete(self, prompt: str) -> str: ...
+
+class OpenAIClient(ModelClient):
+    def complete(self, prompt: str) -> str:
+        return f"OpenAI: {prompt}"
+
+class InferenceService:
+    def __init__(self, client: ModelClient):
+        self.client = client
+
+# Wire it up:
+container = Container()
+container.register(ModelClient, OpenAIClient,
+                   Scope.SINGLETON)
+container.register(InferenceService, InferenceService)
+
+service = container.resolve(InferenceService)
+# service.client is auto-injected as OpenAIClient singleton
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Register a mock implementation, resolve, verify the mock is injected. Test singleton scope: resolve twice, verify same instance (\code{is}). Test transient: resolve twice, verify different instances. Test recursive resolution: A depends on B depends on C.
+    \item \textbf{Circular dependencies}: What if A depends on B and B depends on A? Detect cycles during resolution by tracking the call stack. Raise a clear error instead of infinite recursion.
+    \item \textbf{Production pattern}: Use DI to swap LLM providers in tests (mock provider), staging (cheap provider), and production (frontier provider) without changing application code.
+    \item \textbf{Metrics}: Track resolution time, singleton cache hit rate, number of registrations per container.
+\end{itemize}
+
+\subsection{Q67: Structured Logging and Observability}
+
+\textbf{Question}: Design a logging system for an LLM inference service that: (a) uses structured JSON logs, (b) includes trace IDs for request correlation, (c) tracks token usage and cost per request, (d) supports log levels, and (e) integrates with Python's standard \code{logging} module.
+
+\textbf{What interviewers look for}: Custom \code{logging.Formatter} that outputs JSON. Context variables (\code{contextvars.ContextVar}) for trace ID propagation across async calls. Custom \code{LogRecord} fields for tokens, cost, model name. This is the observability infrastructure discussed in Chapter~\ref{ch:reliability-ops}.
+
+\subsection{Q68: Graceful Shutdown $\star$}
+
+\textbf{Question}: Your Python service receives SIGTERM during deployment. It currently has: 15 in-flight LLM API calls, a background evaluation task, and an open database connection pool. Design the graceful shutdown sequence.
+
+\textbf{What interviewers look for}: Register signal handlers with \code{signal.signal(SIGTERM, handler)}. The handler: (1) stops accepting new requests, (2) waits for in-flight requests to complete (with a timeout), (3) cancels background tasks, (4) drains the connection pool, (5) flushes logs. For asyncio, use \code{loop.add\_signal\_handler()} and \code{asyncio.Event} for coordinated shutdown.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import asyncio, signal, logging
+
+logger = logging.getLogger(__name__)
+
+class GracefulService:
+    def __init__(self):
+        self._shutdown = asyncio.Event()
+        self._in_flight: set[asyncio.Task] = set()
+        self._bg_tasks: list[asyncio.Task] = []
+
+    async def handle_request(self, request: dict) -> dict:
+        if self._shutdown.is_set():
+            raise RuntimeError("Service shutting down")
+        task = asyncio.current_task()
+        self._in_flight.add(task)
+        try:
+            # ... process request ...
+            return {"status": "ok"}
+        finally:
+            self._in_flight.discard(task)
+
+    async def _shutdown_handler(self):
+        logger.info("SIGTERM received. Starting graceful "
+                    "shutdown...")
+        # 1. Stop accepting new requests
+        self._shutdown.set()
+        # 2. Wait for in-flight requests (max 30s)
+        if self._in_flight:
+            logger.info(f"Waiting for {len(self._in_flight)} "
+                        f"in-flight requests...")
+            done, pending = await asyncio.wait(
+                self._in_flight, timeout=30.0)
+            if pending:
+                logger.warning(f"Force-cancelling "
+                    f"{len(pending)} requests")
+                for task in pending:
+                    task.cancel()
+        # 3. Cancel background tasks
+        for task in self._bg_tasks:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        # 4. Drain connection pool
+        # await self.db_pool.close()
+        # 5. Flush logs
+        logging.shutdown()
+        logger.info("Shutdown complete.")
+
+    def setup_signals(self, loop: asyncio.AbstractEventLoop):
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(
+                sig,
+                lambda: asyncio.create_task(
+                    self._shutdown_handler()))
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Send SIGTERM and verify: (a) new requests are rejected with 503, (b) in-flight requests complete, (c) background tasks are cancelled, (d) service exits cleanly within 30s. Test the timeout path: create a request that hangs, send SIGTERM, verify it's force-cancelled after 30s.
+    \item \textbf{Load balancer integration}: Before shutdown, mark the health check endpoint as unhealthy (return 503 on \code{/healthz}). The load balancer stops sending new traffic. Then begin draining.
+    \item \textbf{Kubernetes}: Set \code{terminationGracePeriodSeconds: 60} in the pod spec (higher than the 30s drain timeout). Kubernetes sends SIGTERM, waits 60s, then sends SIGKILL.
+    \item \textbf{Metrics}: Track shutdown duration, requests drained vs. force-cancelled, background tasks cleanly stopped vs. force-cancelled.
+\end{itemize}
+
+\subsection{Q69: Feature Flags in Python}
+
+\textbf{Question}: Implement a feature flag system that supports: (a) boolean flags, (b) percentage rollouts, (c) user-segment targeting, (d) real-time updates without redeployment, and (e) a clean API (\code{if feature.is\_enabled("new\_model", user=user):}).
+
+\textbf{What interviewers look for}: A \code{FeatureFlags} class that reads flag definitions from a config store (Redis, database, or config file). Percentage rollouts use consistent hashing on user ID (so a user always sees the same variant). Real-time updates via polling or pub/sub. Thread-safe flag resolution.
+
+\subsection{Q70: Zero-Downtime Deployment Pattern}
+
+\textbf{Question}: Explain how to achieve zero-downtime deployment for a Python service running behind a load balancer. Cover: health checks, connection draining, and rolling restarts.
+
+\textbf{What interviewers look for}: Load balancer health check endpoint (\code{/healthz}). When deploying: (1) new instance starts and passes health checks, (2) load balancer routes traffic to new instance, (3) old instance receives SIGTERM, (4) old instance stops accepting new connections (returns 503 on health check), (5) old instance drains in-flight requests, (6) old instance exits. Key: the health check must distinguish ``starting up'' (not ready) from ``shutting down'' (draining).
+
+
+\section{Company-Specific Coding Challenges}
+
+These challenges are inspired by actual coding rounds reported at top AI companies. Each targets a specific engineering concern that the company cares deeply about.
+
+\subsection{Q71: Semantic Cache (Anthropic/OpenAI) $\star$}
+
+\textbf{Question}: Implement a semantic cache for LLM responses. Given a query, check if a semantically similar query has been asked before (cosine similarity $>$ threshold). If yes, return the cached response. Support: TTL expiration, LRU eviction, and cache invalidation.
+
+\textbf{What interviewers look for}: Use a vector store (even a simple list of embeddings for the implementation). For each new query, embed it, compute cosine similarity against all cached embeddings (or use ANN for scale), and return the cached response if above threshold. Combine with an LRU doubly-linked list for eviction. This is the Semantic Cache pattern from Chapter~\ref{ch:app-architecture}.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import time, numpy as np
+from dataclasses import dataclass, field
+from collections import OrderedDict
+from typing import Callable, Any
+
+@dataclass
+class CacheEntry:
+    embedding: np.ndarray
+    response: str
+    created_at: float
+    ttl: float
+
+    @property
+    def is_expired(self) -> bool:
+        return time.monotonic() - self.created_at > self.ttl
+
+class SemanticCache:
+    def __init__(self, embed_fn: Callable[[str], np.ndarray],
+                 similarity_threshold: float = 0.93,
+                 max_size: int = 10000,
+                 default_ttl: float = 3600.0):
+        self._embed = embed_fn
+        self._threshold = similarity_threshold
+        self._max_size = max_size
+        self._default_ttl = default_ttl
+        self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
+        self._embeddings: list[np.ndarray] = []  # parallel list
+        self._keys: list[str] = []
+        self.hits = self.misses = 0
+
+    def _cosine_sim(self, a: np.ndarray,
+                    b_matrix: np.ndarray) -> np.ndarray:
+        """Vectorized cosine similarity: a vs all rows of b."""
+        a_norm = a / (np.linalg.norm(a) + 1e-9)
+        b_norms = b_matrix / (
+            np.linalg.norm(b_matrix, axis=1, keepdims=True)
+            + 1e-9)
+        return a_norm @ b_norms.T
+
+    def get(self, query: str) -> str | None:
+        if not self._embeddings:
+            self.misses += 1
+            return None
+        query_emb = self._embed(query)
+        emb_matrix = np.stack(self._embeddings)
+        similarities = self._cosine_sim(query_emb, emb_matrix)
+        best_idx = int(np.argmax(similarities))
+        best_sim = similarities[best_idx]
+
+        if best_sim >= self._threshold:
+            key = self._keys[best_idx]
+            entry = self._cache[key]
+            if not entry.is_expired:
+                self._cache.move_to_end(key)  # LRU touch
+                self.hits += 1
+                return entry.response
+            else:
+                self._evict(key)  # expired
+        self.misses += 1
+        return None
+
+    def put(self, query: str, response: str,
+            ttl: float | None = None) -> None:
+        if len(self._cache) >= self._max_size:
+            oldest_key = next(iter(self._cache))  # LRU evict
+            self._evict(oldest_key)
+        embedding = self._embed(query)
+        entry = CacheEntry(
+            embedding=embedding, response=response,
+            created_at=time.monotonic(),
+            ttl=ttl or self._default_ttl)
+        self._cache[query] = entry
+        self._embeddings.append(embedding)
+        self._keys.append(query)
+
+    def _evict(self, key: str) -> None:
+        idx = self._keys.index(key)
+        self._keys.pop(idx)
+        self._embeddings.pop(idx)
+        del self._cache[key]
+
+    @property
+    def hit_rate(self) -> float:
+        total = self.hits + self.misses
+        return self.hits / total if total > 0 else 0.0
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Test exact match (same query returns cached response). Test near-match (rephrase of query hits cache). Test miss (completely different query). Test TTL expiration. Test LRU eviction at capacity. Verify hit\_rate metric accuracy.
+    \item \textbf{Scaling}: For 100K+ entries, replace the linear scan with an ANN index (FAISS, Annoy). This changes \code{get()} from $O(N)$ to $O(\log N)$.
+    \item \textbf{Threshold tuning}: Too high (0.99) = low hit rate, wasted cache. Too low (0.85) = wrong answers from cache. Tune per-use-case using a calibration set of (query, query\_variant, should\_match) triples.
+    \item \textbf{Cache invalidation}: When the underlying knowledge base changes, invalidate cached responses that reference stale information. Track which cache entries were generated from which documents.
+    \item \textbf{Metrics}: Hit rate, miss rate, average similarity of hits, TTL distribution, cost savings (hits $\times$ cost\_per\_LLM\_call).
+    \item \textbf{Model routing interaction}: Check cache BEFORE routing to any model. A cache hit at 0ms is always cheaper than even the cheapest model.
+\end{itemize}
+
+\subsection{Q72: Structured Output Validator (OpenAI/Google DeepMind) $\star$}
+
+\textbf{Question}: Write a robust JSON extractor and validator for LLM outputs that handles: (a) JSON wrapped in markdown code fences, (b) trailing commas, (c) single-quoted strings, (d) NaN/Infinity values, (e) comments in JSON, (f) truncated output. If extraction fails, generate a re-prompt that includes the error message.
+
+\textbf{What interviewers look for}: A pipeline: strip code fences $\to$ fix trailing commas (regex) $\to$ replace single quotes $\to$ handle NaN $\to$ attempt \code{json.loads()} $\to$ validate against schema $\to$ on failure, generate error-aware re-prompt. This is the Validator-Corrector Proxy pattern in action.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import json, re
+from typing import Any
+
+class StructuredOutputValidator:
+    """Extract, repair, and validate JSON from LLM output."""
+
+    def extract_and_validate(
+        self, raw: str, schema: dict | None = None
+    ) -> tuple[dict | None, str | None]:
+        """Returns (parsed_json, error_message)."""
+        # Step 1: Strip markdown code fences
+        cleaned = re.sub(
+            r'```(?:json)?\s*\n?', '', raw).strip()
+        cleaned = re.sub(r'```\s*$', '', cleaned).strip()
+
+        # Step 2: Fix trailing commas before } or ]
+        cleaned = re.sub(
+            r',\s*([}\]])', r'\1', cleaned)
+
+        # Step 3: Replace single quotes with double quotes
+        # (naive; production uses a proper tokenizer)
+        cleaned = re.sub(
+            r"(?<!\\)'([^']*?)(?<!\\)'",
+            r'"\1"', cleaned)
+
+        # Step 4: Handle NaN/Infinity (invalid JSON)
+        cleaned = cleaned.replace('NaN', 'null')
+        cleaned = cleaned.replace('Infinity', '1e308')
+        cleaned = cleaned.replace('-Infinity', '-1e308')
+
+        # Step 5: Remove JS-style comments
+        cleaned = re.sub(r'//.*?$', '', cleaned,
+                         flags=re.MULTILINE)
+        cleaned = re.sub(r'/\*.*?\*/', '', cleaned,
+                         flags=re.DOTALL)
+
+        # Step 6: Attempt parsing
+        try:
+            parsed = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            # Step 7: Try to fix truncated JSON
+            for fix in ['}', ']}', '"}', '"]}']:
+                try:
+                    parsed = json.loads(cleaned + fix)
+                    break
+                except json.JSONDecodeError:
+                    continue
+            else:
+                return None, f"JSON parse error: {e}"
+
+        # Step 8: Schema validation (if provided)
+        if schema:
+            error = self._validate_schema(parsed, schema)
+            if error:
+                return None, error
+
+        return parsed, None
+
+    def _validate_schema(self, data: Any,
+                         schema: dict) -> str | None:
+        """Simple schema validation."""
+        for key, expected_type in schema.items():
+            if key not in data:
+                return f"Missing required field: '{key}'"
+            if not isinstance(data[key], expected_type):
+                return (f"Field '{key}' expected "
+                    f"{expected_type.__name__}, got "
+                    f"{type(data[key]).__name__}")
+        return None
+
+    def generate_reprompt(self, original_prompt: str,
+                          error: str,
+                          schema: dict) -> str:
+        """Create an error-aware retry prompt."""
+        schema_desc = json.dumps(
+            {k: v.__name__ for k, v in schema.items()},
+            indent=2)
+        return (
+            f"{original_prompt}\n\n"
+            f"IMPORTANT: Your previous response had an error:\n"
+            f"{error}\n\n"
+            f"Please respond with valid JSON matching this "
+            f"schema exactly:\n{schema_desc}\n"
+            f"Do NOT wrap in markdown code fences.")
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Create a test suite of 20+ malformed JSON strings (each covering a different failure mode). Assert that the validator successfully repairs and parses each one. Test the re-prompt generation produces a prompt that, when sent to the LLM, yields valid output.
+    \item \textbf{Production reliability}: Track repair rates by category (code fences, trailing commas, truncation). If one category spikes, it indicates a model behavior change or prompt regression.
+    \item \textbf{Schema evolution}: Use JSON Schema or Pydantic models for production schema validation. Support optional fields, nested objects, enum constraints, and format validation (dates, URLs).
+    \item \textbf{Metrics}: Parse success rate (first attempt), repair success rate (after fixes), re-prompt success rate (after retry), average retries per request, validation failure rate by schema field.
+    \item \textbf{Model routing}: Route structured output tasks to models that natively support JSON mode (OpenAI structured outputs, Gemini controlled generation). Fall back to the validator-corrector only for models that don't support it.
+\end{itemize}
+
+\subsection{Q73: Distributed Task Queue (Meta/Stripe)}
+
+\textbf{Question}: Implement a simple distributed task queue with: (a) task submission and result retrieval, (b) at-least-once delivery, (c) dead letter queue for failed tasks, (d) priority ordering, (e) worker heartbeats and task reassignment on worker failure.
+
+\textbf{What interviewers look for}: Use Redis (or in-memory for the interview) with sorted sets for priority queue. Task states: PENDING $\to$ PROCESSING $\to$ COMPLETED/FAILED. Workers acquire tasks atomically (RPOPLPUSH in Redis). Heartbeat via periodic timestamp updates. If heartbeat is stale ($>$ 30s), reassign the task. Failed tasks after N retries go to dead letter queue.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import time, uuid, threading
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Callable, Any
+import heapq
+
+class TaskState(Enum):
+    PENDING = auto()
+    PROCESSING = auto()
+    COMPLETED = auto()
+    FAILED = auto()
+
+@dataclass(order=True)
+class Task:
+    priority: int  # lower = higher priority
+    task_id: str = field(compare=False,
+        default_factory=lambda: str(uuid.uuid4())[:8])
+    payload: dict = field(compare=False,
+        default_factory=dict)
+    state: TaskState = field(compare=False,
+        default=TaskState.PENDING)
+    retries: int = field(compare=False, default=0)
+    max_retries: int = field(compare=False, default=3)
+    worker_id: str | None = field(compare=False,
+        default=None)
+    last_heartbeat: float = field(compare=False,
+        default=0.0)
+    result: Any = field(compare=False, default=None)
+
+class TaskQueue:
+    def __init__(self, heartbeat_timeout: float = 30.0):
+        self._lock = threading.Lock()
+        self._queue: list[Task] = []  # min-heap
+        self._tasks: dict[str, Task] = {}
+        self._dead_letter: list[Task] = []
+        self._heartbeat_timeout = heartbeat_timeout
+
+    def submit(self, payload: dict,
+               priority: int = 5) -> str:
+        task = Task(priority=priority, payload=payload)
+        with self._lock:
+            heapq.heappush(self._queue, task)
+            self._tasks[task.task_id] = task
+        return task.task_id
+
+    def acquire(self, worker_id: str) -> Task | None:
+        with self._lock:
+            while self._queue:
+                task = heapq.heappop(self._queue)
+                if task.state == TaskState.PENDING:
+                    task.state = TaskState.PROCESSING
+                    task.worker_id = worker_id
+                    task.last_heartbeat = time.monotonic()
+                    return task
+            return None  # no tasks available
+
+    def heartbeat(self, task_id: str) -> None:
+        with self._lock:
+            if task_id in self._tasks:
+                self._tasks[task_id].last_heartbeat = (
+                    time.monotonic())
+
+    def complete(self, task_id: str, result: Any) -> None:
+        with self._lock:
+            task = self._tasks[task_id]
+            task.state = TaskState.COMPLETED
+            task.result = result
+
+    def fail(self, task_id: str) -> None:
+        with self._lock:
+            task = self._tasks[task_id]
+            task.retries += 1
+            if task.retries >= task.max_retries:
+                task.state = TaskState.FAILED
+                self._dead_letter.append(task)
+            else:
+                task.state = TaskState.PENDING
+                task.worker_id = None
+                heapq.heappush(self._queue, task)
+
+    def reap_stale(self) -> int:
+        """Reassign tasks from dead workers."""
+        now = time.monotonic()
+        count = 0
+        with self._lock:
+            for task in self._tasks.values():
+                if (task.state == TaskState.PROCESSING and
+                    now - task.last_heartbeat
+                        > self._heartbeat_timeout):
+                    task.state = TaskState.PENDING
+                    task.worker_id = None
+                    heapq.heappush(self._queue, task)
+                    count += 1
+        return count
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Submit 10 tasks with different priorities. Verify acquired in priority order. Kill a worker mid-task, run \code{reap\_stale()}, verify the task is reassigned. Fail a task 3 times, verify it moves to dead letter queue.
+    \item \textbf{At-least-once vs. exactly-once}: This implementation is at-least-once (a task may be processed twice if the worker dies after completing but before reporting). For exactly-once: use an idempotency key and deduplication on the result store.
+    \item \textbf{Scaling}: Replace the in-memory heap with Redis sorted sets (ZADD for submit, ZPOPMIN for acquire). Redis guarantees atomic operations across multiple workers.
+    \item \textbf{Metrics}: Queue depth, task completion rate, retry rate, dead letter queue size, average time-in-queue, worker utilization.
+\end{itemize}
+
+\subsection{Q74: Token-Aware Text Splitter (Google/Anthropic)}
+
+\textbf{Question}: Implement a text splitter that: (a) splits on token count (not character count), (b) respects sentence and paragraph boundaries, (c) supports configurable overlap, (d) preserves metadata (section headers, page numbers), and (e) handles multiple languages.
+
+\textbf{What interviewers look for}: Use \code{tiktoken} (or equivalent) for token counting. Greedy algorithm: accumulate sentences until token budget is reached, then emit the chunk and start the next with \code{overlap\_tokens} of context. Preserve metadata by tracking the current section header and attaching it to each chunk. Multi-language: sentence segmentation must handle languages without spaces (Chinese, Japanese).
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import re
+from dataclasses import dataclass, field
+from typing import Callable
+
+@dataclass
+class Chunk:
+    text: str
+    token_count: int
+    metadata: dict = field(default_factory=dict)
+
+class TokenAwareChunker:
+    def __init__(self,
+                 token_counter: Callable[[str], int],
+                 max_tokens: int = 512,
+                 overlap_tokens: int = 64):
+        self._count = token_counter
+        self._max = max_tokens
+        self._overlap = overlap_tokens
+
+    def _split_sentences(self, text: str) -> list[str]:
+        """Split on sentence boundaries."""
+        return re.split(
+            r'(?<=[.!?])\s+(?=[A-Z])', text)
+
+    def chunk(self, text: str,
+              metadata: dict | None = None) -> list[Chunk]:
+        sentences = self._split_sentences(text)
+        chunks, current, tokens = [], [], 0
+        meta = metadata or {}
+
+        for sent in sentences:
+            # Track section headers
+            if sent.startswith("# "):
+                meta = {**meta, "section": sent[2:]}
+                continue
+
+            sent_tokens = self._count(sent)
+            if tokens + sent_tokens > self._max and current:
+                chunk_text = " ".join(current)
+                chunks.append(Chunk(
+                    text=chunk_text,
+                    token_count=tokens,
+                    metadata={**meta}))
+                # Overlap: keep last sentences up to
+                # overlap_tokens
+                overlap, ov_tokens = [], 0
+                for s in reversed(current):
+                    s_tok = self._count(s)
+                    if ov_tokens + s_tok > self._overlap:
+                        break
+                    overlap.insert(0, s)
+                    ov_tokens += s_tok
+                current = overlap
+                tokens = ov_tokens
+
+            current.append(sent)
+            tokens += sent_tokens
+
+        if current:
+            chunks.append(Chunk(
+                text=" ".join(current),
+                token_count=tokens,
+                metadata={**meta}))
+        return chunks
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Chunk a document with known token counts. Verify: each chunk $\leq$ max\_tokens, overlap is present, metadata propagates, last chunk is not empty. Edge case: a single sentence longer than max\_tokens (must be emitted as-is).
+    \item \textbf{Why token-aware, not character-aware?}: LLMs have fixed context windows measured in tokens, not characters. A 4K-character chunk might be 500 tokens or 1500 tokens depending on language and vocabulary.
+    \item \textbf{Multi-language}: Chinese/Japanese have no space-delimited sentences. Use a language-aware sentence tokenizer (e.g., \code{spacy} or \code{nltk.sent\_tokenize}) instead of regex.
+    \item \textbf{Metrics}: Average chunk utilization (actual tokens / max tokens), overlap ratio, chunks per document.
+\end{itemize}
+
+\subsection{Q75: Model Router with Fallback (Stripe/LinkedIn) $\star$}
+
+\textbf{Question}: Implement a model routing system that: (a) classifies incoming requests by complexity (low/medium/high), (b) routes to the appropriate model tier, (c) implements circuit breaker per provider, (d) falls back to the next tier on failure, and (e) tracks cost and latency per route.
+
+\textbf{What interviewers look for}: A \code{ModelRouter} class with a list of tiers sorted by cost. Each tier has a circuit breaker. On request: classify complexity, select tier, check circuit breaker state, call model, on failure cascade to next tier. Track cumulative cost using a \code{Counter}. This is the Cognitive Router + Cascade Fallback pattern.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import time, hashlib
+from dataclasses import dataclass, field
+from typing import Callable, Any
+
+@dataclass
+class ModelTier:
+    name: str
+    model_fn: Callable[[str], str]
+    cost_per_1k_tokens: float
+    circuit: Any = None  # CircuitBreaker instance
+    total_cost: float = 0.0
+    total_calls: int = 0
+    total_latency: float = 0.0
+
+class ProductionModelRouter:
+    def __init__(self, tiers: list[ModelTier],
+                 ab_split: float = 0.0,
+                 candidate_tier: str | None = None):
+        self._tiers = {t.name: t for t in tiers}
+        self._tier_order = sorted(
+            tiers, key=lambda t: t.cost_per_1k_tokens)
+        self._ab_split = ab_split
+        self._candidate = candidate_tier
+
+    def _classify(self, prompt: str) -> str:
+        """Complexity classifier (production: use ML)."""
+        words = len(prompt.split())
+        if words < 30:   return "fast"
+        if words < 150:  return "balanced"
+        return "frontier"
+
+    def _should_ab_route(self, prompt: str) -> bool:
+        """Deterministic hash for consistent A/B assignment."""
+        h = int(hashlib.md5(prompt.encode()).hexdigest(), 16)
+        return (h % 1000) / 1000 < self._ab_split
+
+    def route(self, prompt: str,
+              estimated_tokens: int = 100) -> dict:
+        # A/B testing: route % to candidate
+        if (self._candidate and
+            self._should_ab_route(prompt)):
+            tier_name = self._candidate
+        else:
+            tier_name = self._classify(prompt)
+
+        # Cascade through tiers on failure
+        tried = []
+        for tier in [self._tiers[tier_name]] + self._tier_order:
+            if tier.name in tried:
+                continue
+            tried.append(tier.name)
+
+            # Check circuit breaker
+            if tier.circuit and tier.circuit.state.name == "OPEN":
+                continue  # skip unhealthy tier
+
+            t0 = time.monotonic()
+            try:
+                if tier.circuit:
+                    result = tier.circuit.call(
+                        tier.model_fn, prompt)
+                else:
+                    result = tier.model_fn(prompt)
+
+                latency = time.monotonic() - t0
+                cost = (estimated_tokens / 1000
+                        * tier.cost_per_1k_tokens)
+                tier.total_cost += cost
+                tier.total_calls += 1
+                tier.total_latency += latency
+
+                return {
+                    "response": result,
+                    "tier": tier.name,
+                    "cost": cost,
+                    "latency_ms": latency * 1000,
+                    "cascaded": len(tried) > 1
+                }
+            except Exception:
+                continue
+
+        raise RuntimeError(
+            f"All tiers failed: {tried}")
+
+    def get_metrics(self) -> dict:
+        return {
+            t.name: {
+                "total_calls": t.total_calls,
+                "total_cost": round(t.total_cost, 4),
+                "avg_latency_ms": (
+                    round(t.total_latency / t.total_calls
+                          * 1000, 1)
+                    if t.total_calls else 0),
+            } for t in self._tier_order
+        }
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Test routing: short prompt $\to$ fast tier, long prompt $\to$ frontier. Test cascade: if fast tier fails, falls back to balanced then frontier. Test A/B: with 10\% split, approximately 10\% of requests go to candidate (use deterministic hash for reproducibility). Test circuit breaker integration: unhealthy tier is skipped.
+    \item \textbf{Traffic splitting for model migration}: Set \code{ab\_split=0.05} with the new model as candidate. Run for 24 hours, collect quality scores from both tiers, and use the Wilcoxon test (Q80) to determine if the candidate is better.
+    \item \textbf{Load balancing}: Within each tier, if multiple instances are available, use least-outstanding-requests routing (not round-robin) because LLM inference latency is variable.
+    \item \textbf{Real-time model selection}: Replace the heuristic classifier with a lightweight ML model (distilled DistilBERT, $<$5ms) trained on (prompt, best\_tier) pairs from offline evaluation. Update the classifier weekly.
+    \item \textbf{Metrics}: Cost per tier per day, cascade rate (indicates tier instability), A/B win rate per dimension, latency by tier, circuit breaker open/close events.
+\end{itemize}
+
+\subsection{Q76: Embedding Index with HNSW (Google DeepMind/Meta)}
+
+\textbf{Question}: Implement a simplified HNSW (Hierarchical Navigable Small World) index from scratch. Support: (a) insertion, (b) k-NN search, (c) configurable parameters (M, efConstruction, efSearch). Explain the multi-layer graph structure and the greedy search algorithm.
+
+\textbf{What interviewers look for}: The key insight: HNSW builds a multi-layer skip-list-like graph where upper layers provide coarse navigation and lower layers provide fine-grained connections. Insertion: connect to M nearest neighbors at each layer, with probability $1/\text{ln}(M)$ of appearing at each level. Search: start at top layer, greedily descend, then beam search at bottom layer with beam width = efSearch. This is the algorithm powering most production vector databases.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import numpy as np, math, heapq, random
+from collections import defaultdict
+
+class HNSWIndex:
+    def __init__(self, dim: int, M: int = 16,
+                 ef_construction: int = 200):
+        self.dim = dim
+        self.M = M  # max connections per node per layer
+        self.ef_construction = ef_construction
+        self.ml = 1.0 / math.log(M)  # level multiplier
+        self.vectors: list[np.ndarray] = []
+        # layers[level] = {node_id: set(neighbor_ids)}
+        self.layers: list[dict[int, set[int]]] = []
+        self.entry_point: int | None = None
+        self.max_level = -1
+
+    def _distance(self, a: np.ndarray,
+                  b: np.ndarray) -> float:
+        return float(np.linalg.norm(a - b))
+
+    def _random_level(self) -> int:
+        return int(-math.log(random.random()) * self.ml)
+
+    def _search_layer(self, query: np.ndarray,
+                      entry: int, ef: int,
+                      level: int) -> list[tuple[float, int]]:
+        """Beam search at a single layer."""
+        visited = {entry}
+        candidates = [  # min-heap by distance
+            (self._distance(query, self.vectors[entry]),
+             entry)]
+        results = list(candidates)  # max-heap (negated)
+        heapq.heapify(candidates)
+
+        while candidates:
+            d_c, c = heapq.heappop(candidates)
+            d_f = max(results, key=lambda x: x[0])[0]
+            if d_c > d_f and len(results) >= ef:
+                break
+
+            neighbors = self.layers[level].get(c, set())
+            for n in neighbors:
+                if n in visited:
+                    continue
+                visited.add(n)
+                d_n = self._distance(query,
+                                     self.vectors[n])
+                if len(results) < ef or d_n < d_f:
+                    heapq.heappush(candidates, (d_n, n))
+                    results.append((d_n, n))
+                    if len(results) > ef:
+                        results.sort()
+                        results.pop()
+
+        results.sort()
+        return results
+
+    def insert(self, vector: np.ndarray) -> int:
+        idx = len(self.vectors)
+        self.vectors.append(vector)
+        level = min(self._random_level(),
+                    self.max_level + 1)
+
+        # Ensure layers exist
+        while len(self.layers) <= level:
+            self.layers.append(defaultdict(set))
+
+        if self.entry_point is None:
+            self.entry_point = idx
+            self.max_level = level
+            return idx
+
+        # Greedy descent from top to level+1
+        ep = self.entry_point
+        for lev in range(self.max_level, level, -1):
+            results = self._search_layer(
+                vector, ep, 1, lev)
+            ep = results[0][1]
+
+        # Insert at each layer from level down to 0
+        for lev in range(min(level, self.max_level), -1, -1):
+            results = self._search_layer(
+                vector, ep, self.ef_construction, lev)
+            neighbors = [r[1] for r in results[:self.M]]
+            for n in neighbors:
+                self.layers[lev][idx].add(n)
+                self.layers[lev][n].add(idx)
+                # Prune if too many connections
+                if len(self.layers[lev][n]) > self.M:
+                    dists = [(self._distance(
+                        self.vectors[n], self.vectors[nb]),
+                        nb) for nb in self.layers[lev][n]]
+                    dists.sort()
+                    self.layers[lev][n] = {
+                        nb for _, nb in dists[:self.M]}
+            if results:
+                ep = results[0][1]
+
+        if level > self.max_level:
+            self.max_level = level
+            self.entry_point = idx
+        return idx
+
+    def search(self, query: np.ndarray, k: int = 10,
+               ef_search: int = 50) -> list[tuple[float, int]]:
+        if self.entry_point is None:
+            return []
+        ep = self.entry_point
+        for lev in range(self.max_level, 0, -1):
+            results = self._search_layer(
+                query, ep, 1, lev)
+            ep = results[0][1]
+        results = self._search_layer(
+            query, ep, max(ef_search, k), 0)
+        return results[:k]
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Insert 10,000 random vectors. For each query, compare HNSW results against brute-force k-NN. Measure recall@10 (should be $>$95\% with default parameters). Benchmark insertion and search speed.
+    \item \textbf{Parameter tuning}: Higher $M$ = better recall but more memory and slower insertion. Higher efSearch = better recall but slower search. $M=16$, efConstruction=200, efSearch=50 are typical defaults.
+    \item \textbf{Why multi-layer?}: Without upper layers, search degenerates to graph traversal on a dense graph (slow). Upper layers act like a skip list, enabling $O(\log N)$ coarse navigation before fine-grained search.
+    \item \textbf{Production}: Use FAISS, Annoy, or a managed vector database (Pinecone, Weaviate). Understanding the algorithm is essential for tuning parameters and debugging recall issues.
+    \item \textbf{Metrics}: Recall@K, queries per second, index build time, memory usage per vector, distance computations per query.
+\end{itemize}
+
+\subsection{Q77: Prompt Template Engine (Anthropic/OpenAI)}
+
+\textbf{Question}: Design and implement a prompt template engine that supports: (a) variable substitution (\code{\{user\_name\}}), (b) conditional blocks (\code{\{if is\_premium\}...\{endif\}}), (c) loops (\code{\{for item in items\}...\{endfor\}}), (d) template inheritance/includes, (e) input validation and injection prevention. It should be safe against template injection attacks.
+
+\textbf{What interviewers look for}: A parser that tokenizes the template into text and control nodes, builds an AST, and evaluates it with a sandboxed context. Security: never use Python's \code{eval()} or \code{exec()} on user-supplied template variables. Prevent prompt injection by escaping special characters in variable values.
+
+\subsection{Q78: Streaming Aggregation Pipeline (LinkedIn/Stripe)}
+
+\textbf{Question}: Implement a streaming pipeline that processes a log stream and computes: (a) per-model token usage in 1-minute windows, (b) 95th percentile latency using the P2 quantile estimator (no sorting), (c) anomaly detection using CUSUM, and (d) alerts when any metric exceeds 2 standard deviations from the rolling baseline.
+
+\textbf{What interviewers look for}: Tumbling window aggregation with window-close callbacks. P2 estimator for approximate quantiles in constant memory ($O(5)$ markers). CUSUM: accumulate positive deviations from the mean; alert when cumulative sum exceeds threshold. This is production monitoring infrastructure.
+
+\subsection{Q79: Inference Request Scheduler (Google DeepMind/Meta) $\star$}
+
+\textbf{Question}: Implement a dynamic batching scheduler for GPU inference. Individual requests arrive asynchronously. The scheduler should: (a) collect requests into batches, (b) trigger inference when batch is full OR a timeout expires, (c) handle variable-length inputs with padding, (d) distribute results back to individual callers, and (e) implement priority queuing.
+
+\textbf{What interviewers look for}: An async task that runs a loop: wait for requests with \code{asyncio.wait\_for(queue.get(), timeout=batch\_timeout\_ms/1000)}. Collect until \code{max\_batch\_size} or timeout. Pad inputs to max length in batch. Run inference. Map outputs back to callers via \code{asyncio.Future} objects stored with each request.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import asyncio
+from dataclasses import dataclass, field
+from typing import Callable, Any
+
+@dataclass
+class InferenceRequest:
+    input_data: list[float]  # e.g., token IDs
+    priority: int = 0        # higher = more urgent
+    future: asyncio.Future = field(default_factory=
+        lambda: asyncio.get_event_loop().create_future())
+
+class DynamicBatcher:
+    def __init__(self, inference_fn: Callable,
+                 max_batch_size: int = 32,
+                 max_wait_ms: float = 50.0):
+        self._inference_fn = inference_fn
+        self._max_batch = max_batch_size
+        self._max_wait = max_wait_ms / 1000.0
+        self._queue: asyncio.PriorityQueue = (
+            asyncio.PriorityQueue())
+        self._running = True
+
+    async def submit(self, input_data: list[float],
+                     priority: int = 0) -> Any:
+        """Submit a request and await its result."""
+        req = InferenceRequest(input_data, priority)
+        await self._queue.put((-priority, id(req), req))
+        return await req.future  # caller blocks here
+
+    async def _run_loop(self):
+        """Background task: collect batches, run inference."""
+        while self._running:
+            batch: list[InferenceRequest] = []
+            try:
+                # Wait for first request (blocks indefinitely)
+                _, _, req = await asyncio.wait_for(
+                    self._queue.get(), timeout=1.0)
+                batch.append(req)
+            except asyncio.TimeoutError:
+                continue
+
+            # Collect more requests up to batch size or timeout
+            deadline = asyncio.get_event_loop().time() \
+                + self._max_wait
+            while (len(batch) < self._max_batch and
+                   asyncio.get_event_loop().time() < deadline):
+                try:
+                    remaining = deadline - (
+                        asyncio.get_event_loop().time())
+                    _, _, req = await asyncio.wait_for(
+                        self._queue.get(),
+                        timeout=max(0, remaining))
+                    batch.append(req)
+                except asyncio.TimeoutError:
+                    break
+
+            # Pad inputs to max length in batch
+            max_len = max(len(r.input_data) for r in batch)
+            padded = [r.input_data + [0] * (
+                max_len - len(r.input_data)) for r in batch]
+
+            # Run batch inference
+            try:
+                outputs = await self._inference_fn(padded)
+                for req, output in zip(batch, outputs):
+                    req.future.set_result(output)
+            except Exception as e:
+                for req in batch:
+                    req.future.set_exception(e)
+
+    async def start(self):
+        self._task = asyncio.create_task(self._run_loop())
+
+    async def stop(self):
+        self._running = False
+        await self._task
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Submit 100 requests simultaneously, verify all futures resolve. Test timeout behavior: submit 3 requests with batch\_size=32---should trigger after max\_wait\_ms. Test priority: high-priority request submitted after low-priority should be processed first.
+    \item \textbf{Padding strategy}: Naive padding wastes compute. Production systems use \emph{bucketed batching}: group requests by similar length into buckets (0--128, 128--512, 512--2048 tokens) to minimize padding waste.
+    \item \textbf{Load balancing}: Multiple batcher instances behind a load balancer. Use least-connections routing so requests go to the batcher with the smallest queue.
+    \item \textbf{Metrics}: Batch fill rate (actual\_size / max\_batch), padding ratio, p50/p99 queue wait time, inference latency per batch, GPU utilization.
+    \item \textbf{Continuous batching}: The above is \emph{static} batching (wait for batch to complete, then accept new). Production LLM serving (vLLM) uses \emph{continuous} batching: as each request finishes generating, its slot is immediately filled by a new request---no waiting.
+\end{itemize}
+
+\subsection{Q80: End-to-End Evaluation Harness (Anthropic/Google)}
+
+\textbf{Question}: Implement an evaluation harness that: (a) loads a golden dataset from JSONL, (b) runs each case through a model function, (c) scores outputs using configurable judge functions (per-dimension rubric scoring), (d) computes aggregate statistics with confidence intervals, (e) compares against a baseline using the Wilcoxon signed-rank test, and (f) outputs a structured report.
+
+\textbf{What interviewers look for}: Clean separation between data loading, execution, scoring, and reporting. Use \code{concurrent.futures} or \code{asyncio} for parallel evaluation. Confidence intervals via bootstrap resampling. Wilcoxon test from \code{scipy.stats.wilcoxon}. This is the core infrastructure discussed in Chapter~\ref{ch:evaluation-testing}---interviewers want to see that you can build the evaluation tools, not just use them.
+
+\textbf{Golden Answer}:
+
+\begin{lstlisting}[language=Python]
+import json, asyncio, numpy as np
+from dataclasses import dataclass, field
+from typing import Callable, Any
+from scipy import stats
+
+@dataclass
+class EvalCase:
+    input: str
+    expected: str
+    metadata: dict = field(default_factory=dict)
+
+@dataclass
+class EvalResult:
+    case: EvalCase
+    output: str
+    scores: dict[str, float]  # {dimension: score}
+    latency_ms: float
+
+def load_golden_dataset(path: str) -> list[EvalCase]:
+    cases = []
+    with open(path) as f:
+        for line in f:
+            obj = json.loads(line)
+            cases.append(EvalCase(
+                input=obj["input"],
+                expected=obj["expected"],
+                metadata=obj.get("metadata", {})))
+    return cases
+
+async def run_evaluation(
+    cases: list[EvalCase],
+    model_fn: Callable[[str], str],
+    judges: dict[str, Callable[[str, str, str], float]],
+    max_concurrent: int = 20
+) -> list[EvalResult]:
+    sem = asyncio.Semaphore(max_concurrent)
+    async def eval_one(case: EvalCase) -> EvalResult:
+        async with sem:
+            import time
+            t0 = time.monotonic()
+            output = await asyncio.to_thread(
+                model_fn, case.input)
+            latency = (time.monotonic() - t0) * 1000
+            scores = {}
+            for dim, judge_fn in judges.items():
+                scores[dim] = await asyncio.to_thread(
+                    judge_fn, case.input, output,
+                    case.expected)
+            return EvalResult(case, output, scores, latency)
+    tasks = [eval_one(c) for c in cases]
+    return await asyncio.gather(*tasks)
+
+def bootstrap_ci(scores: list[float],
+                 n_boot: int = 1000,
+                 ci: float = 0.95) -> tuple[float, float]:
+    """Bootstrap 95% confidence interval."""
+    samples = np.random.choice(scores, (n_boot, len(scores)),
+                               replace=True)
+    means = samples.mean(axis=1)
+    lo = np.percentile(means, (1 - ci) / 2 * 100)
+    hi = np.percentile(means, (1 + ci) / 2 * 100)
+    return float(lo), float(hi)
+
+def compare_models(
+    baseline_scores: list[float],
+    candidate_scores: list[float]
+) -> dict:
+    """Statistical comparison using Wilcoxon signed-rank."""
+    stat, p_value = stats.wilcoxon(baseline_scores,
+                                   candidate_scores)
+    baseline_mean = np.mean(baseline_scores)
+    candidate_mean = np.mean(candidate_scores)
+    return {
+        "baseline_mean": baseline_mean,
+        "candidate_mean": candidate_mean,
+        "improvement": candidate_mean - baseline_mean,
+        "p_value": p_value,
+        "significant": p_value < 0.05,
+        "recommendation": (
+            "PROMOTE" if p_value < 0.05
+            and candidate_mean > baseline_mean
+            else "HOLD")
+    }
+
+def generate_report(results: list[EvalResult],
+                    dimensions: list[str]) -> dict:
+    report = {"total_cases": len(results)}
+    for dim in dimensions:
+        scores = [r.scores[dim] for r in results]
+        ci_lo, ci_hi = bootstrap_ci(scores)
+        report[dim] = {
+            "mean": float(np.mean(scores)),
+            "std": float(np.std(scores)),
+            "ci_95": [ci_lo, ci_hi],
+            "min": float(min(scores)),
+            "max": float(max(scores)),
+        }
+    report["latency_p50"] = float(
+        np.percentile([r.latency_ms for r in results], 50))
+    report["latency_p99"] = float(
+        np.percentile([r.latency_ms for r in results], 99))
+    return report
+\end{lstlisting}
+
+\textbf{Interviewer Follow-ups}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Testing}: Create a synthetic golden dataset where the expected quality is known. Test that the harness correctly computes scores, confidence intervals contain the true mean, and the Wilcoxon test correctly identifies significant differences vs. random noise.
+    \item \textbf{Why Wilcoxon, not t-test?}: Wilcoxon is non-parametric---it doesn't assume normally distributed score differences. LLM quality scores are often skewed or have outliers, making the t-test unreliable.
+    \item \textbf{Model migration workflow}: Run the harness on both the current production model and the candidate model on the same golden dataset. If the candidate is significantly better ($p < 0.05$) on all dimensions, promote via canary rollout (5\% $\to$ 25\% $\to$ 100\%).
+    \item \textbf{Traffic splitting}: During canary, route 5\% of production traffic to the candidate and run the eval harness on both sets of responses. Compare online quality scores, not just offline golden dataset results.
+    \item \textbf{Metrics}: Per-dimension score distribution, category-level regression detection (overall score may be fine but one category drops), judge agreement (run each case through the judge 3 times and check variance), cost of evaluation.
+\end{itemize}
+

@@ -1,0 +1,51 @@
+digraph kv_cache {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,3.5", ratio=compress,
+           rankdir=LR, nodesep=0.4, ranksep=0.6, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    // Prefill phase
+    subgraph cluster_prefill {
+        style="rounded,dashed"; color="#00758F"; bgcolor="#E0F2F1";
+        label="Prefill Phase (Process entire prompt)"; fontcolor="#00758F"; fontsize=10;
+
+        prompt [label="Input Prompt\n(N tokens)", fillcolor="#FFFDE7", color="#FDD835"];
+        attn_p [label="Parallel\nAttention\nCompute", fillcolor="#F3E5F5", color="#BA68C8"];
+        kv_store [label="KV Cache\n(Store K,V\nfor all N tokens)", fillcolor="#E3F2FD", color="#64B5F6", shape=cylinder];
+        
+        prompt -> attn_p [label="all tokens\nat once"];
+        attn_p -> kv_store [label="populate"];
+    }
+
+    // Decode phase
+    subgraph cluster_decode {
+        style="rounded,dashed"; color="#C4362A"; bgcolor="#FCE4EC";
+        label="Decode Phase (Generate one token at a time)"; fontcolor="#C4362A"; fontsize=10;
+
+        new_tok [label="New Token\n(1 token)", fillcolor="#FFFDE7", color="#FDD835"];
+        attn_d [label="Attend to\nALL past\nK,V pairs", fillcolor="#F3E5F5", color="#BA68C8"];
+        kv_grow [label="KV Cache\n(Grows by 1\neach step)", fillcolor="#E3F2FD", color="#64B5F6", shape=cylinder];
+        output [label="Next Token\nPrediction", fillcolor="#E8F5E9", color="#81C784"];
+        
+        new_tok -> attn_d;
+        attn_d -> output;
+        attn_d -> kv_grow [label="append", style=dashed];
+    }
+
+    // Memory breakdown
+    subgraph cluster_memory {
+        style="rounded"; color="#B0BEC5"; bgcolor="#FAFAFA";
+        label="Memory Breakdown (70B model, 4K context)"; fontcolor="#607D8B"; fontsize=10;
+
+        weights [label="Model Weights\n140 GB (FP16)", fillcolor="#ECEFF1", color="#B0BEC5"];
+        kv_mem [label="KV Cache\n~5 GB per\nbatch item", fillcolor="#E3F2FD", color="#64B5F6"];
+        act_mem [label="Activations\n~2 GB", fillcolor="#FFF3E0", color="#FFB74D"];
+        
+        weights -> kv_mem [style=invis];
+        kv_mem -> act_mem [style=invis];
+    }
+
+    kv_store -> attn_d [label="read all\npast K,V", color="#00758F", penwidth=1.5];
+}

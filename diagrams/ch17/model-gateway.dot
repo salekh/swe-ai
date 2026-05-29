@@ -1,0 +1,66 @@
+digraph model_gateway {
+    rankdir=TB;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10];
+    edge [fontname="Helvetica", fontsize=8];
+    
+    // Clients
+    subgraph cluster_clients {
+        label="Application Teams";
+        style=dashed;
+        color="#90CAF9";
+        team1 [label="Search Team", shape=ellipse, fillcolor="#FFF3E0"];
+        team2 [label="Support Team", shape=ellipse, fillcolor="#FFF3E0"];
+        team3 [label="Analytics Team", shape=ellipse, fillcolor="#FFF3E0"];
+    }
+    
+    // Gateway
+    subgraph cluster_gateway {
+        label="Model Gateway";
+        style=filled;
+        color="#E3F2FD";
+        fillcolor="#E3F2FD";
+        
+        auth [label="Auth &\nRate Limiter\n(per-team quotas)", fillcolor="#BBDEFB"];
+        sem_cache [label="Semantic Cache\n(20-40% hit rate)", fillcolor="#FFF9C4"];
+        router [label="Routing Engine\n• Static rules\n• Dynamic failover\n• Cost optimizer", fillcolor="#C8E6C9"];
+        obs [label="Observability\n• Request/Response logs\n• Token counts & cost\n• Trace IDs", fillcolor="#FFE0B2"];
+        budget [label="Budget Controller\n• Per-team limits\n• Alert at 80%\n• Auto-throttle", fillcolor="#FFCDD2"];
+    }
+    
+    // Providers
+    subgraph cluster_providers {
+        label="LLM Providers";
+        style=dashed;
+        color="#CE93D8";
+        openai [label="OpenAI\nGPT-5.5", fillcolor="#F3E5F5"];
+        anthropic [label="Anthropic\nClaude Opus", fillcolor="#F3E5F5"];
+        google [label="Google\nGemini 3.5", fillcolor="#F3E5F5"];
+        selfhost [label="Self-hosted\nLLaMA 4", fillcolor="#F3E5F5"];
+    }
+    
+    // Circuit breakers
+    cb1 [label="CB", shape=circle, fillcolor="#FFCDD2", width=0.4, fontsize=8];
+    cb2 [label="CB", shape=circle, fillcolor="#FFCDD2", width=0.4, fontsize=8];
+    cb3 [label="CB", shape=circle, fillcolor="#FFCDD2", width=0.4, fontsize=8];
+    cb4 [label="CB", shape=circle, fillcolor="#FFCDD2", width=0.4, fontsize=8];
+    
+    // Edges
+    team1 -> auth;
+    team2 -> auth;
+    team3 -> auth;
+    auth -> sem_cache;
+    auth -> budget;
+    sem_cache -> router [label="MISS"];
+    router -> cb1 -> openai;
+    router -> cb2 -> anthropic;
+    router -> cb3 -> google;
+    router -> cb4 -> selfhost;
+    openai -> obs;
+    anthropic -> obs;
+    google -> obs;
+    selfhost -> obs;
+    
+    // Failover arrows
+    openai -> anthropic [style=dashed, color="#F44336", label="failover", fontcolor="#F44336"];
+    anthropic -> google [style=dashed, color="#F44336", label="failover", fontcolor="#F44336"];
+}

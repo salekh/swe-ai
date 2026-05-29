@@ -1,0 +1,81 @@
+digraph model_migration {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,8!", ratio=fill,
+           rankdir=TB, nodesep=0.35, ranksep=0.5, pad=0.3, compound=true];
+    node  [fontname="Helvetica Neue", fontsize=10, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    title [label="Model Migration Pipeline", shape=none, fillcolor=white, color=white,
+           fontsize=13, fontcolor="#00758F"];
+
+    // Phase 1
+    subgraph cluster_p1 {
+        style="rounded"; color="#1565C0"; bgcolor="#E3F2FD"; penwidth=2;
+        label="Phase 1: Candidate Evaluation (offline)"; fontcolor="#1565C0"; fontsize=11;
+        
+        golden [label="Golden Dataset\n(500+ curated cases\nversioned, stratified)", fillcolor="#BBDEFB", color="#42A5F5"];
+        run_old [label="Run: Current Model\n(baseline scores)", fillcolor="#BBDEFB", color="#42A5F5"];
+        run_new [label="Run: Candidate Model\n(candidate scores)", fillcolor="#BBDEFB", color="#42A5F5"];
+        compare [label="Statistical Comparison\n• Per-category Δ scores\n• Paired t-test / Wilcoxon\n• Worst-case regression\n• Distribution shift (KL)", fillcolor="white", color="#42A5F5"];
+        
+        golden -> run_old;
+        golden -> run_new;
+        run_old -> compare;
+        run_new -> compare;
+    }
+
+    // Gate 1
+    gate1 [label="Gate 1\nΔ > -3% on ALL\ncategories?", fillcolor="#FFF9C4", color="#FBC02D", shape=diamond, fontsize=10];
+    fail1 [label="❌ REJECT\nCandidate", fillcolor="#FFCDD2", color="#E57373"];
+
+    // Phase 2
+    subgraph cluster_p2 {
+        style="rounded"; color="#7B1FA2"; bgcolor="#F3E5F5"; penwidth=2;
+        label="Phase 2: Prompt Adaptation (if needed)"; fontcolor="#7B1FA2"; fontsize=11;
+        
+        prompt_audit [label="Prompt Audit\nIdentify model-specific\nidioms, formatting,\ntoken patterns", fillcolor="#E1BEE7", color="#AB47BC"];
+        adapt [label="Prompt Adaptation\nAdjust system prompts\nfor candidate model's\nstrengths/weaknesses", fillcolor="#E1BEE7", color="#AB47BC"];
+        reeval [label="Re-evaluate\non Golden Dataset\nwith adapted prompts", fillcolor="#E1BEE7", color="#AB47BC"];
+        
+        prompt_audit -> adapt -> reeval;
+    }
+
+    // Phase 3
+    subgraph cluster_p3 {
+        style="rounded"; color="#FF8F00"; bgcolor="#FFF3E0"; penwidth=2;
+        label="Phase 3: Shadow Deployment (online)"; fontcolor="#E65100"; fontsize=11;
+        
+        shadow [label="Shadow Mode\nRun candidate alongside\nproduction model\non real traffic", fillcolor="#FFE0B2", color="#FFB74D"];
+        shadow_eval [label="Compare Real-World\n• Latency (p50/p95)\n• Cost per request\n• Schema compliance\n• Judge scores (sampled)", fillcolor="#FFE0B2", color="#FFB74D"];
+        
+        shadow -> shadow_eval;
+    }
+
+    // Gate 2
+    gate2 [label="Gate 2\nShadow parity\n± 2% on quality?", fillcolor="#FFF9C4", color="#FBC02D", shape=diamond, fontsize=10];
+
+    // Phase 4
+    subgraph cluster_p4 {
+        style="rounded"; color="#2E7D32"; bgcolor="#E8F5E9"; penwidth=2;
+        label="Phase 4: Canary Rollout"; fontcolor="#2E7D32"; fontsize=11;
+        
+        canary [label="5% → 25% → 50% → 100%\ntraffic ramp\nwith quality gates\nat each stage", fillcolor="#C8E6C9", color="#66BB6A"];
+        rollback [label="Auto-rollback\nif quality drops > 3%\nat any stage", fillcolor="#FFCDD2", color="#E57373"];
+        
+        canary -> rollback [style=dashed, color="#C4362A", label="regression"];
+    }
+
+    complete [label="✓ Migration\nComplete\nUpdate baseline", fillcolor="#C8E6C9", color="#2E7D32", penwidth=2];
+
+    // Flow
+    title -> golden [style=invis];
+    compare -> gate1;
+    gate1 -> fail1 [label="no", color="#C4362A"];
+    gate1 -> prompt_audit [label="yes", color="#2E7D32"];
+    reeval -> shadow [label="passes"];
+    shadow_eval -> gate2;
+    gate2 -> fail1 [label="no", color="#C4362A"];
+    gate2 -> canary [label="yes", color="#2E7D32"];
+    canary -> complete [label="all gates pass", color="#2E7D32"];
+}

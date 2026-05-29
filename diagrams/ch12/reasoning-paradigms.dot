@@ -1,0 +1,82 @@
+digraph reasoning_paradigms {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,10!", ratio=fill,
+           rankdir=TB, nodesep=0.35, ranksep=0.5, pad=0.3, compound=true];
+    node  [fontname="Helvetica Neue", fontsize=10, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=8, color="#78909C",
+           penwidth=1.0, arrowsize=0.6];
+
+    // ════════ ERA 1: Prompting Paradigms (2022) ════════
+    subgraph cluster_era1 {
+        style="rounded"; color="#1565C0"; bgcolor="#E3F2FD"; penwidth=2;
+        label="Era 1: Prompting Paradigms (2022)"; fontcolor="#1565C0"; fontsize=12;
+        
+        cot [label="Chain-of-Thought\n(Wei et al., 2022)\n\"Let's think step by step\"\nLinear reasoning chain", 
+             fillcolor="#BBDEFB", color="#42A5F5"];
+        selfask [label="Self-Ask\n(Press et al., 2022)\nDecomposes question\ninto sub-questions", 
+                 fillcolor="#BBDEFB", color="#42A5F5"];
+        least2most [label="Least-to-Most\n(Zhou et al., 2022)\nSolve simple → complex\nCurricular decomposition", 
+                    fillcolor="#BBDEFB", color="#42A5F5"];
+    }
+    
+    // ════════ ERA 2: Agents + Tool Use (2023) ════════
+    subgraph cluster_era2 {
+        style="rounded"; color="#00758F"; bgcolor="#E0F2F1"; penwidth=2;
+        label="Era 2: Agents & Tool Use (2023)"; fontcolor="#00758F"; fontsize=12;
+        
+        react [label="ReAct\n(Yao et al., 2023)\nThought → Action → Obs\nInterpretable traces", 
+               fillcolor="#B2DFDB", color="#00897B"];
+        toolformer [label="Toolformer\n(Schick et al., 2023)\nModel learns WHEN\nto call tools", 
+                    fillcolor="#B2DFDB", color="#00897B"];
+        reflexion [label="Reflexion\n(Shinn et al., 2023)\nSelf-evaluate → reflect\n→ retry with insight", 
+                   fillcolor="#B2DFDB", color="#00897B"];
+        voyager [label="Voyager\n(Wang et al., 2023)\nSkill library +\ncurriculum learning", 
+                 fillcolor="#B2DFDB", color="#00897B"];
+        genagents [label="Generative Agents\n(Park et al., 2023)\nMemory + reflection\n+ social simulation", 
+                   fillcolor="#B2DFDB", color="#00897B"];
+    }
+
+    // ════════ ERA 3: Search & Planning (2023-2024) ════════
+    subgraph cluster_era3 {
+        style="rounded"; color="#7B1FA2"; bgcolor="#F3E5F5"; penwidth=2;
+        label="Era 3: Search & Planning (2023–2024)"; fontcolor="#7B1FA2"; fontsize=12;
+        
+        tot [label="Tree of Thoughts\n(Yao et al., 2023)\nExplore multiple paths\nBFS/DFS over reasoning", 
+             fillcolor="#E1BEE7", color="#AB47BC"];
+        got [label="Graph of Thoughts\n(Besta et al., 2023)\nDAG of reasoning\nMerge & refine branches", 
+             fillcolor="#E1BEE7", color="#AB47BC"];
+        lats [label="LATS\n(Zhou et al., 2023)\nMCTS + LLM scoring\nSearch over action space", 
+              fillcolor="#E1BEE7", color="#AB47BC"];
+        metagpt [label="MetaGPT\n(Hong et al., 2023)\nMulti-agent SOPs\nRole-based orchestration", 
+                 fillcolor="#E1BEE7", color="#AB47BC"];
+    }
+
+    // ════════ ERA 4: Reasoning Models & Flow Eng (2024-2025) ════════
+    subgraph cluster_era4 {
+        style="rounded"; color="#C4362A"; bgcolor="#FCE4EC"; penwidth=2;
+        label="Era 4: Reasoning Models & Flow Engineering (2024–2026)"; fontcolor="#C4362A"; fontsize=12;
+        
+        o1 [label="Reasoning Models\n(o1, o3, o4-mini)\nInternal chain-of-thought\nTest-time compute scaling", 
+            fillcolor="#FFCDD2", color="#E57373"];
+        sweagent [label="SWE-Agent\n(Yang et al., 2024)\nCode-native agent\nSWE-Bench benchmark", 
+                  fillcolor="#FFCDD2", color="#E57373"];
+        flow [label="Flow Engineering\nMulti-step structured\nworkflows with gates\nand quality checks", 
+              fillcolor="#FFCDD2", color="#E57373"];
+        mcp_a2a [label="MCP + A2A\nStandardized tool protocols\nInter-agent communication\nComposable agent infra", 
+                 fillcolor="#FFCDD2", color="#E57373"];
+    }
+
+    // ════════ Evolution edges ════════
+    cot -> react [label="add tools", color="#00758F", penwidth=1.3];
+    cot -> tot [label="branch", color="#7B1FA2"];
+    react -> reflexion [label="add\nself-eval", color="#00758F"];
+    react -> voyager [label="add skills\n& memory", color="#00758F"];
+    reflexion -> o1 [label="internalize\nreasoning", color="#C4362A", penwidth=1.3];
+    tot -> lats [label="add MCTS", color="#7B1FA2"];
+    tot -> got [label="generalize\nto DAG", color="#7B1FA2"];
+    genagents -> metagpt [label="formalize\nroles", color="#7B1FA2"];
+    react -> sweagent [label="specialize\nfor code", color="#C4362A"];
+    metagpt -> mcp_a2a [label="standardize\nprotocol", color="#C4362A"];
+    lats -> flow [label="productionize", color="#C4362A"];
+    selfask -> react [color="#00758F", style=dashed];
+}

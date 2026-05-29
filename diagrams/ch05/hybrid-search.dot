@@ -1,0 +1,52 @@
+digraph hybrid_search {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,5", ratio=compress,
+           rankdir=TB, nodesep=0.5, ranksep=0.6, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.15,0.08"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Query
+    query [label="User Query\n\"How do I handle OAuth refresh\ntokens in a microservice?\"", fillcolor="#FFFDE7", color="#FDD835", fontsize=10];
+
+    // Two retrieval paths
+    subgraph cluster_dense {
+        style="rounded"; color="#BA68C8"; bgcolor="#F3E5F5";
+        label="Dense Retrieval (Semantic)"; fontcolor="#7B1FA2"; fontsize=11;
+        
+        embed_q [label="Embed Query\n→ 1536-dim vector", fillcolor="#E1BEE7", color="#BA68C8"];
+        ann [label="ANN Search\n(cosine similarity\nagainst vector DB)", fillcolor="#E1BEE7", color="#BA68C8"];
+        dense_results [label="Top-50 Results\n(semantic matches)", fillcolor="#E1BEE7", color="#BA68C8"];
+        
+        dense_note [label="✅ Finds 'token rotation'\neven without exact keyword", shape=none, fillcolor=white, color=white, fontsize=9, fontcolor="#7B1FA2"];
+    }
+
+    subgraph cluster_sparse {
+        style="rounded"; color="#64B5F6"; bgcolor="#E3F2FD";
+        label="Sparse Retrieval (Keyword)"; fontcolor="#1565C0"; fontsize=11;
+        
+        tokenize [label="Tokenize Query\n→ BM25 terms", fillcolor="#BBDEFB", color="#64B5F6"];
+        bm25 [label="BM25 Lookup\n(exact keyword\nmatching)", fillcolor="#BBDEFB", color="#64B5F6"];
+        sparse_results [label="Top-50 Results\n(keyword matches)", fillcolor="#BBDEFB", color="#64B5F6"];
+        
+        sparse_note [label="✅ Catches 'OAuth'\nas exact keyword", shape=none, fillcolor=white, color=white, fontsize=9, fontcolor="#1565C0"];
+    }
+
+    // Fusion
+    rrf [label="Reciprocal Rank Fusion (RRF)\nscore(d) = Σ  1 / (k + rank_i(d))\nk = 60 (standard)", fillcolor="#FFF3E0", color="#FFB74D", fontsize=10];
+
+    // Re-ranking
+    rerank [label="Cross-Encoder Re-Ranking\n(Cohere Rerank / BGE-reranker)\nTop-50 → Top-5", fillcolor="#E0F2F1", color="#00758F", fontsize=10];
+
+    // Output
+    output [label="Final Top-K Chunks\n→ into LLM context", fillcolor="#E8F5E9", color="#2E7D32", fontsize=11, penwidth=1.5];
+
+    // Flow
+    query -> embed_q;
+    query -> tokenize;
+    embed_q -> ann -> dense_results;
+    tokenize -> bm25 -> sparse_results;
+    dense_results -> rrf;
+    sparse_results -> rrf;
+    rrf -> rerank -> output;
+}

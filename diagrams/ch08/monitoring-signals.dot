@@ -1,0 +1,53 @@
+digraph monitoring {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,5", ratio=compress,
+           rankdir=LR, nodesep=0.4, ranksep=0.7, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=10, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Input
+    req [label="LLM Request\n+ Response", fillcolor="#FFFDE7", color="#F9A825", fontsize=11, penwidth=2];
+
+    // Signal groups
+    subgraph cluster_perf {
+        style="rounded"; color="#1565C0"; bgcolor="#E3F2FD";
+        label="Performance Signals"; fontcolor="#1565C0"; fontsize=11;
+        
+        latency [label="Latency (ms)\np50 / p95 / p99", fillcolor="#BBDEFB", color="#64B5F6", fontsize=9];
+        tokens [label="Token Usage\ninput + output\nper-feature", fillcolor="#BBDEFB", color="#64B5F6", fontsize=9];
+        cost [label="Cost ($/req)\nby model, feature,\nuser segment", fillcolor="#BBDEFB", color="#64B5F6", fontsize=9];
+    }
+
+    subgraph cluster_quality {
+        style="rounded"; color="#2E7D32"; bgcolor="#E8F5E9";
+        label="Quality Signals (5% sample)"; fontcolor="#2E7D32"; fontsize=11;
+        
+        judge [label="LLM-as-Judge\nscoring (async)", fillcolor="#C8E6C9", color="#81C784", fontsize=9];
+        refusals [label="Refusal Rate\n(model declined\nto answer)", fillcolor="#C8E6C9", color="#81C784", fontsize=9];
+        structural [label="Schema Compliance\n(% of responses\nthat parse)", fillcolor="#C8E6C9", color="#81C784", fontsize=9];
+    }
+
+    subgraph cluster_alerts {
+        style="rounded"; color="#C4362A"; bgcolor="#FCE4EC";
+        label="Anomaly → Alert"; fontcolor="#C4362A"; fontsize=11;
+        
+        anomaly [label="Anomaly Detection\n• Latency > 5s\n• Tokens > 10K\n• Quality drift\n• Cost spike", fillcolor="#FFCDD2", color="#E57373", fontsize=9];
+        alert [label="🚨 Alert\n+ auto-logged\nfor investigation", fillcolor="#FFCDD2", color="#E57373", fontsize=9, penwidth=2];
+        
+        anomaly -> alert;
+    }
+
+    // Flow
+    req -> latency;
+    req -> tokens;
+    req -> cost;
+    req -> judge;
+    req -> refusals;
+    req -> structural;
+    latency -> anomaly [style=dashed];
+    tokens -> anomaly [style=dashed];
+    cost -> anomaly [style=dashed];
+    judge -> anomaly [style=dashed];
+    refusals -> anomaly [style=dashed];
+}

@@ -1,0 +1,64 @@
+digraph agent_architectures {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,8", ratio=compress,
+           rankdir=TB, nodesep=0.4, ranksep=0.5, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // ======== ReAct Pattern ========
+    subgraph cluster_react {
+        style="rounded"; color="#00758F"; bgcolor="#E0F2F1";
+        label="Pattern 1: ReAct (Reasoning + Acting)"; fontcolor="#00758F"; fontsize=12;
+        
+        r_observe [label="Observe\n(user input,\ntool results)", fillcolor="#B2DFDB", color="#00897B"];
+        r_think [label="Thought\n(explicit CoT\nreasoning)", fillcolor="#FFFDE7", color="#F9A825"];
+        r_act [label="Action\n(tool call)", fillcolor="#E3F2FD", color="#1565C0"];
+        r_done [label="Final\nAnswer", fillcolor="#C8E6C9", color="#2E7D32", penwidth=2];
+        
+        r_observe -> r_think -> r_act -> r_observe [color="#00758F"];
+        r_think -> r_done [label="done", style=dashed, color="#2E7D32"];
+        
+        r_note [label="✅ Interpretable trace\n✅ Good for exploratory tasks\n❌ Can wander without convergence", 
+                shape=none, fillcolor=white, color=white, fontsize=9, fontcolor="#00758F"];
+    }
+    
+    // ======== Plan-and-Execute Pattern ========
+    subgraph cluster_plan {
+        style="rounded"; color="#7B1FA2"; bgcolor="#F3E5F5";
+        label="Pattern 2: Plan-and-Execute"; fontcolor="#7B1FA2"; fontsize=12;
+        
+        p_goal [label="Complex\nGoal", fillcolor="#E1BEE7", color="#BA68C8"];
+        p_plan [label="Planner LLM\n→ Step 1..N\n(structured plan)", fillcolor="#FFFDE7", color="#F9A825"];
+        p_exec [label="Executor LLM\n(executes each\nstep w/ tools)", fillcolor="#E3F2FD", color="#1565C0"];
+        p_replan [label="Re-plan?\n(on failure or\nnew information)", fillcolor="#FFF3E0", color="#FFB74D", shape=diamond];
+        p_synth [label="Synthesize\nFinal Result", fillcolor="#C8E6C9", color="#2E7D32", penwidth=2];
+        
+        p_goal -> p_plan -> p_exec -> p_replan;
+        p_replan -> p_plan [label="yes", color="#C4362A", style=dashed];
+        p_replan -> p_synth [label="no"];
+        
+        p_note [label="✅ Structured, predictable\n✅ Good for multi-step workflows\n❌ Plan can be wrong upfront", 
+                shape=none, fillcolor=white, color=white, fontsize=9, fontcolor="#7B1FA2"];
+    }
+    
+    // ======== Reflexion Pattern ========
+    subgraph cluster_reflexion {
+        style="rounded"; color="#C4362A"; bgcolor="#FCE4EC";
+        label="Pattern 3: Reflexion (Learn from Mistakes)"; fontcolor="#C4362A"; fontsize=12;
+        
+        x_attempt [label="Generate\nSolution", fillcolor="#FFCDD2", color="#E57373"];
+        x_eval [label="Self-Evaluate\n(does it pass?)", fillcolor="#FFFDE7", color="#F9A825", shape=diamond];
+        x_reflect [label="Reflect\n\"what went wrong\"\n→ store insight", fillcolor="#FFF3E0", color="#FFB74D"];
+        x_retry [label="Retry with\nreflection context", fillcolor="#FFCDD2", color="#E57373"];
+        x_pass [label="✓ Ship It", fillcolor="#C8E6C9", color="#2E7D32", penwidth=2];
+        
+        x_attempt -> x_eval;
+        x_eval -> x_pass [label="pass"];
+        x_eval -> x_reflect [label="fail", color="#C4362A"];
+        x_reflect -> x_retry -> x_eval;
+        
+        x_note [label="✅ Self-correcting\n✅ Improves with each attempt\n❌ Expensive (multiple LLM calls)", 
+                shape=none, fillcolor=white, color=white, fontsize=9, fontcolor="#C4362A"];
+    }
+}

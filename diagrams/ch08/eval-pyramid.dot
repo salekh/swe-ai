@@ -1,0 +1,53 @@
+digraph eval_pyramid {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,5", ratio=compress,
+           rankdir=BT, nodesep=0.6, ranksep=0.7, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.15,0.08"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    // Level 1: Structural (base, widest)
+    subgraph cluster_l1 {
+        style="rounded"; color="#81C784"; bgcolor="#E8F5E9";
+        label="Level 1: Structural Validation"; fontcolor="#2E7D32"; fontsize=11;
+        
+        l1a [label="Schema\nCompliance\n(JSON, Pydantic)", fillcolor="#C8E6C9", color="#81C784"];
+        l1b [label="Constraint\nChecks\n(length, format,\nlogic rules)", fillcolor="#C8E6C9", color="#81C784"];
+        l1c [label="Refusal\nDetection\n(\"I cannot...\"\npatterns)", fillcolor="#C8E6C9", color="#81C784"];
+        
+        l1_meta [label="Cost: ~$0\nCoverage: 100%\nSpeed: < 1ms\nCatches: ~20% of issues", shape=none, fillcolor=white, color=white, fontcolor="#2E7D32", fontsize=8];
+    }
+
+    // Level 2: LLM-as-Judge (middle)
+    subgraph cluster_l2 {
+        style="rounded"; color="#64B5F6"; bgcolor="#E3F2FD";
+        label="Level 2: LLM-as-Judge"; fontcolor="#1565C0"; fontsize=11;
+        
+        l2a [label="Absolute\nScoring\n(1-5 per criterion)", fillcolor="#BBDEFB", color="#64B5F6"];
+        l2b [label="Pairwise\nComparison\n(A vs B, both orders)", fillcolor="#BBDEFB", color="#64B5F6"];
+        l2c [label="Reference-Based\n(compare to\ngold standard)", fillcolor="#BBDEFB", color="#64B5F6"];
+        
+        l2_meta [label="Cost: ~$0.01/eval\nCoverage: 5-10%\nSpeed: 1-3s\nCatches: ~60% of issues", shape=none, fillcolor=white, color=white, fontcolor="#1565C0", fontsize=8];
+    }
+
+    // Level 3: Human + Statistical (top, narrowest)
+    subgraph cluster_l3 {
+        style="rounded"; color="#BA68C8"; bgcolor="#F3E5F5";
+        label="Level 3: Human + Statistical Evaluation"; fontcolor="#7B1FA2"; fontsize=11;
+        
+        l3a [label="Regression\nTest Suite\n(golden dataset)", fillcolor="#E1BEE7", color="#BA68C8"];
+        l3b [label="A/B Testing\n(production\ntraffic split)", fillcolor="#E1BEE7", color="#BA68C8"];
+        l3c [label="Expert Human\nReview\n(domain specialists)", fillcolor="#E1BEE7", color="#BA68C8"];
+        
+        l3_meta [label="Cost: $$$\nCoverage: 1-2%\nSpeed: hours-days\nCatches: subtle issues", shape=none, fillcolor=white, color=white, fontcolor="#7B1FA2", fontsize=8];
+    }
+
+    // Connections (bottom to top)
+    l1a -> l2a [label="pass", color="#81C784"];
+    l1b -> l2b [label="pass", color="#81C784"];
+    l1c -> l2c [label="pass", color="#81C784"];
+    
+    l2a -> l3a [label="sampled", color="#64B5F6"];
+    l2b -> l3b [label="sampled", color="#64B5F6"];
+    l2c -> l3c [label="flagged", color="#64B5F6"];
+}

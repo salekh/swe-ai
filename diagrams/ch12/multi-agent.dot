@@ -1,0 +1,59 @@
+digraph multi_agent {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,3", ratio=compress,
+           rankdir=TB, nodesep=0.6, ranksep=0.7, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    // Pattern 1: Supervisor
+    subgraph cluster_supervisor {
+        style="rounded,filled"; color="#00758F"; bgcolor="#E0F2F1";
+        label="Pattern 1: Supervisor"; fontcolor="#00758F"; fontsize=11;
+        
+        sup [label="Supervisor\nAgent", fillcolor="#B2DFDB", color="#00897B"];
+        w1 [label="Code Writer\nAgent", fillcolor="#ECEFF1", color="#B0BEC5"];
+        w2 [label="Code Reviewer\nAgent", fillcolor="#ECEFF1", color="#B0BEC5"];
+        w3 [label="Test Writer\nAgent", fillcolor="#ECEFF1", color="#B0BEC5"];
+        
+        sup -> w1 [label="write"];
+        sup -> w2 [label="review"];
+        sup -> w3 [label="test"];
+        w1 -> sup [style=dashed, label="result"];
+        w2 -> sup [style=dashed, label="feedback"];
+        w3 -> sup [style=dashed, label="results"];
+    }
+
+    // Pattern 2: Peer
+    subgraph cluster_peer {
+        style="rounded,filled"; color="#BA68C8"; bgcolor="#F3E5F5";
+        label="Pattern 2: Peer Collaboration"; fontcolor="#7B1FA2"; fontsize=11;
+        
+        p1 [label="Research\nAgent", fillcolor="#E1BEE7", color="#BA68C8"];
+        p2 [label="Writing\nAgent", fillcolor="#E1BEE7", color="#BA68C8"];
+        p3 [label="Critic\nAgent", fillcolor="#E1BEE7", color="#BA68C8"];
+        
+        p1 -> p2 [label="findings"];
+        p2 -> p3 [label="draft"];
+        p3 -> p2 [label="feedback", style=dashed, color="#C4362A"];
+        p3 -> p1 [label="gaps", style=dashed, color="#C4362A"];
+    }
+
+    // Pattern 3: Hierarchical
+    subgraph cluster_hier {
+        style="rounded,filled"; color="#81C784"; bgcolor="#E8F5E9";
+        label="Pattern 3: Hierarchical"; fontcolor="#2E7D32"; fontsize=11;
+        
+        ceo [label="Director\nAgent", fillcolor="#A5D6A7", color="#66BB6A"];
+        mgr1 [label="Backend\nLead", fillcolor="#C8E6C9", color="#81C784"];
+        mgr2 [label="Frontend\nLead", fillcolor="#C8E6C9", color="#81C784"];
+        dev1 [label="API\nDev", fillcolor="#ECEFF1", color="#B0BEC5"];
+        dev2 [label="DB\nDev", fillcolor="#ECEFF1", color="#B0BEC5"];
+        dev3 [label="UI\nDev", fillcolor="#ECEFF1", color="#B0BEC5"];
+        dev4 [label="UX\nDev", fillcolor="#ECEFF1", color="#B0BEC5"];
+        
+        ceo -> mgr1; ceo -> mgr2;
+        mgr1 -> dev1; mgr1 -> dev2;
+        mgr2 -> dev3; mgr2 -> dev4;
+    }
+}

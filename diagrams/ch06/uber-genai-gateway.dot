@@ -1,0 +1,61 @@
+digraph uber_gateway {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,4", ratio=compress,
+           rankdir=LR, nodesep=0.5, ranksep=0.7, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    // Internal services
+    subgraph cluster_services {
+        style="rounded,dashed"; color="#B0BEC5"; bgcolor="#FAFAFA";
+        label="Internal Services (1000+ use cases)"; fontcolor="#607D8B"; fontsize=10;
+
+        support [label="Customer\nSupport\nAgent", fillcolor="#FFFDE7", color="#FDD835"];
+        fraud [label="Fraud\nDetection", fillcolor="#FFFDE7", color="#FDD835"];
+        eats [label="Uber Eats\nRecommender", fillcolor="#FFFDE7", color="#FDD835"];
+        code [label="Internal\nCode Agent", fillcolor="#FFFDE7", color="#FDD835"];
+    }
+
+    // GenAI Gateway
+    subgraph cluster_gateway {
+        style="rounded"; color="#00758F"; bgcolor="#E0F2F1";
+        label="GenAI Gateway (Go)"; fontcolor="#00758F"; fontsize=11;
+
+        auth [label="Auth &\nBudgeting", fillcolor="#E0F2F1", color="#00758F"];
+        router [label="Model\nRouter", fillcolor="#E0F2F1", color="#00758F"];
+        prompt_mgmt [label="Prompt\nVersioning &\nEvaluation", fillcolor="#E0F2F1", color="#00758F"];
+        observ [label="Logging\nTracing\nCost Tracking", fillcolor="#E0F2F1", color="#00758F"];
+        tools [label="Toolshed\n(MCP)\n400+ tools", fillcolor="#FFF3E0", color="#FFB74D"];
+    }
+
+    // LLM providers
+    subgraph cluster_providers {
+        style="rounded,dashed"; color="#BA68C8"; bgcolor="#F3E5F5";
+        label="LLM Providers"; fontcolor="#7B1FA2"; fontsize=10;
+
+        openai [label="OpenAI\nGPT-5.5", fillcolor="#E1BEE7", color="#BA68C8"];
+        vertex [label="Google\nVertex AI", fillcolor="#E1BEE7", color="#BA68C8"];
+        self_hosted [label="Self-Hosted\n(vLLM on H100)\nLlama 4 70B", fillcolor="#E1BEE7", color="#BA68C8"];
+    }
+
+    // Devbox
+    devbox [label="Devbox\nEnvironment\n(sandboxed\nexecution)", fillcolor="#ECEFF1", color="#B0BEC5"];
+
+    // Flow
+    support -> auth;
+    fraud -> auth;
+    eats -> auth;
+    code -> auth;
+    
+    auth -> router;
+    auth -> prompt_mgmt;
+    auth -> observ [style=dashed, color="#90A4AE"];
+    
+    router -> openai [label="complex"];
+    router -> vertex [label="multimodal"];
+    router -> self_hosted [label="high-volume\nlow-cost"];
+    
+    prompt_mgmt -> router;
+    tools -> devbox [label="execute"];
+}

@@ -1,0 +1,79 @@
+digraph doc_pipeline {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,8", ratio=compress,
+           rankdir=TB, nodesep=0.4, ranksep=0.5, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    // Sources
+    subgraph cluster_sources {
+        style="rounded,dashed"; color="#B0BEC5"; bgcolor="#FAFAFA";
+        label="Document Sources"; fontcolor="#607D8B"; fontsize=10;
+        
+        pdf [label="PDFs\n(40% of docs)", fillcolor="#FCE4EC", color="#E57373"];
+        confluence [label="Confluence\nWiki", fillcolor="#FFFDE7", color="#FDD835"];
+        github [label="GitHub\nRepos", fillcolor="#ECEFF1", color="#B0BEC5"];
+        slack [label="Slack\nThreads", fillcolor="#FFFDE7", color="#FDD835"];
+        api_docs [label="API\nDocs", fillcolor="#ECEFF1", color="#B0BEC5"];
+    }
+
+    // Document classification
+    classify [label="Format\nClassifier", fillcolor="#FFF3E0", color="#FFB74D"];
+
+    // Format-specific processing
+    subgraph cluster_extract {
+        style="rounded"; color="#64B5F6"; bgcolor="#E3F2FD";
+        label="Format-Specific Extraction"; fontcolor="#1565C0"; fontsize=10;
+        
+        text_extract [label="Text\nExtraction\n(PyMuPDF)", fillcolor="#BBDEFB", color="#64B5F6"];
+        ocr [label="OCR\n(Tesseract)\nfor scanned", fillcolor="#BBDEFB", color="#64B5F6"];
+        table_extract [label="Table\nExtraction\n→ Markdown", fillcolor="#BBDEFB", color="#64B5F6"];
+        html_parse [label="HTML/MD\nParser", fillcolor="#BBDEFB", color="#64B5F6"];
+        code_parse [label="Code\nParser\n(AST-aware)", fillcolor="#BBDEFB", color="#64B5F6"];
+    }
+
+    // Universal processing
+    subgraph cluster_process {
+        style="rounded"; color="#FFB74D"; bgcolor="#FFF3E0";
+        label="Universal Processing"; fontcolor="#E65100"; fontsize=10;
+        
+        clean [label="Clean &\nNormalize\n(fix ligatures,\nremove headers)", fillcolor="#FFF3E0", color="#FFB74D"];
+        chunk [label="Semantic\nChunking\n(boundary-aware)", fillcolor="#FFF3E0", color="#FFB74D"];
+        metadata [label="Metadata\nEnrichment\n(title, section,\ndate, author)", fillcolor="#FFF3E0", color="#FFB74D"];
+    }
+
+    // Embedding & Storage
+    subgraph cluster_embed {
+        style="rounded"; color="#BA68C8"; bgcolor="#F3E5F5";
+        label="Embedding & Indexing"; fontcolor="#7B1FA2"; fontsize=10;
+        
+        embed [label="Embedding\nModel\n(text-embedding-3)", fillcolor="#E1BEE7", color="#BA68C8"];
+        vectordb [label="Vector\nDatabase", fillcolor="#E3F2FD", color="#64B5F6", shape=cylinder];
+        full_text [label="Full-Text\nIndex\n(BM25)", fillcolor="#E3F2FD", color="#64B5F6", shape=cylinder];
+    }
+
+    // Flow
+    pdf -> classify;
+    confluence -> classify;
+    github -> classify;
+    slack -> classify;
+    api_docs -> classify;
+
+    classify -> text_extract [label="digital PDF"];
+    classify -> ocr [label="scanned"];
+    classify -> table_extract [label="tables"];
+    classify -> html_parse [label="HTML/MD"];
+    classify -> code_parse [label="code"];
+
+    text_extract -> clean;
+    ocr -> clean;
+    table_extract -> clean;
+    html_parse -> clean;
+    code_parse -> clean;
+
+    clean -> chunk -> metadata;
+    
+    metadata -> embed -> vectordb;
+    metadata -> full_text;
+}

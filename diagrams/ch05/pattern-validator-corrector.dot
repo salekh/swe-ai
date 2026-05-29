@@ -1,0 +1,35 @@
+digraph validator_corrector {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,4!", ratio=fill,
+           rankdir=LR, nodesep=0.4, ranksep=0.7, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=10, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    app [label="Application\nCode", fillcolor="#FFFDE7", color="#FBC02D", fontsize=11, penwidth=2];
+    
+    subgraph cluster_proxy {
+        style="rounded"; color="#C4362A"; bgcolor="#FCE4EC"; penwidth=2;
+        label="Validator-Corrector Proxy"; fontcolor="#C4362A"; fontsize=11;
+        
+        call [label="Call LLM\n(structured output\nrequest)", fillcolor="white", color="#E57373"];
+        validate [label="Validate\n(Pydantic /\nJSON Schema)", fillcolor="white", color="#E57373", shape=diamond];
+        inject [label="Inject Error\ninto Context\n\"Fix this:\n{error_msg}\"", fillcolor="#FFCDD2", color="#E57373"];
+        counter [label="Retry ≤ N?", fillcolor="#FFF3E0", color="#FFB74D", shape=diamond, fontsize=9];
+    }
+
+    llm [label="LLM\nProvider", fillcolor="#E3F2FD", color="#42A5F5", fontsize=11];
+    
+    result [label="Typed\nResult", fillcolor="#C8E6C9", color="#2E7D32", fontsize=11, penwidth=2];
+    fallback [label="Fallback\n(default /\nerror)", fillcolor="#ECEFF1", color="#90A4AE"];
+
+    // Flow
+    app -> call [label="request"];
+    call -> llm [label="prompt"];
+    llm -> validate [label="raw\nresponse"];
+    validate -> result [label="✓ valid"];
+    validate -> counter [label="✗ invalid", color="#C4362A"];
+    counter -> inject [label="yes\n(retry)", color="#C4362A"];
+    inject -> call [label="augmented\nprompt", color="#C4362A", style=dashed];
+    counter -> fallback [label="no\n(exhausted)", color="#90A4AE"];
+}

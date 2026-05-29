@@ -1,0 +1,61 @@
+digraph stripe_fraud {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,7", ratio=compress,
+           rankdir=TB, nodesep=0.5, ranksep=0.6, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    // Transaction
+    txn [label="Payment\nTransaction", fillcolor="#FFFDE7", color="#FDD835"];
+
+    // Tier 1
+    subgraph cluster_t1 {
+        style="rounded"; color="#81C784"; bgcolor="#E8F5E9";
+        label="Tier 1: Fast ML  (< 10ms, 100% of txns)"; fontcolor="#2E7D32"; fontsize=10;
+        
+        features [label="Feature\nExtraction\n(structured data)", fillcolor="#C8E6C9", color="#81C784"];
+        xgb [label="XGBoost\nEnsemble\n(velocity, device,\namount, merchant)", fillcolor="#C8E6C9", color="#81C784"];
+        fast_score [label="Risk Score", fillcolor="#C8E6C9", color="#81C784", shape=diamond];
+    }
+
+    // Outcomes from Tier 1
+    allow [label="✅ Allow\n(score < 0.05)\n~85% of txns", fillcolor="#E8F5E9", color="#2E7D32"];
+    block [label="🚫 Block\n(score > 0.95)\n~7% of txns", fillcolor="#FCE4EC", color="#E57373"];
+
+    // Tier 2
+    subgraph cluster_t2 {
+        style="rounded"; color="#64B5F6"; bgcolor="#E3F2FD";
+        label="Tier 2: LLM Analysis  (50-100ms, ~8% of txns)"; fontcolor="#1565C0"; fontsize=10;
+        
+        context [label="Context\nAssembly\n(merchant name,\ndescription,\nuser history)", fillcolor="#BBDEFB", color="#64B5F6"];
+        llm [label="LLM\nAnalysis\n(unstructured\nsignal extraction)", fillcolor="#F3E5F5", color="#BA68C8"];
+        ensemble [label="Ensemble\nCombiner\n(ML + LLM scores)", fillcolor="#BBDEFB", color="#64B5F6"];
+    }
+
+    // Tier 3
+    subgraph cluster_t3 {
+        style="rounded,dashed"; color="#FFB74D"; bgcolor="#FFF3E0";
+        label="Tier 3: Human Review  (~0.5% of txns)"; fontcolor="#E65100"; fontsize=10;
+
+        human [label="Fraud Analyst\nReview\n(with AI\npre-analysis)", fillcolor="#FFF3E0", color="#FFB74D"];
+    }
+
+    // Final outcomes
+    allow2 [label="✅ Allow\n(combined < 0.5)", fillcolor="#E8F5E9", color="#2E7D32"];
+    final_decision [label="Final\nDecision", fillcolor="#FFF3E0", color="#FFB74D"];
+
+    // Flow
+    txn -> features -> xgb -> fast_score;
+    
+    fast_score -> allow [label="low risk"];
+    fast_score -> block [label="high risk"];
+    fast_score -> context [label="gray zone\n(0.05 - 0.95)", color="#1565C0", penwidth=1.5];
+    
+    context -> llm -> ensemble;
+    
+    ensemble -> allow2 [label="confident"];
+    ensemble -> human [label="uncertain", color="#FFB74D"];
+    
+    human -> final_decision;
+}

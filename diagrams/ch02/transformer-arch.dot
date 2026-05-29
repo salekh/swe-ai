@@ -1,0 +1,67 @@
+digraph transformer_arch {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white",
+           size="6.4,9!", ratio=fill,
+           rankdir=TB, nodesep=0.4, ranksep=0.45, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.14,0.07"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Input
+    input [label="Input Tokens  [batch, seq_len]", fillcolor="#FFFDE7", color="#FBC02D"];
+    
+    // Embedding
+    embed [label="Token Embedding + Positional Encoding (RoPE)\n[batch, seq_len, d_model]", fillcolor="#E3F2FD", color="#42A5F5"];
+    
+    // Transformer block (repeated)
+    subgraph cluster_block {
+        style="rounded"; color="#00758F"; bgcolor="#F0F9FA"; penwidth=2;
+        label="× L  Transformer Layers  (e.g. L=80 for a 70B model)"; fontcolor="#00758F"; fontsize=11;
+        
+        // Sub-block 1: Attention
+        subgraph cluster_attn_block {
+            style="rounded"; color="#CE93D8"; bgcolor="#F3E5F5";
+            label="Self-Attention Sub-Block"; fontcolor="#7B1FA2"; fontsize=10;
+            
+            norm1 [label="RMSNorm", fillcolor="white", color="#B0BEC5", fontsize=10];
+            attn [label="Multi-Head Self-Attention\n(Grouped Query Attention)\nComplexity: O(n² · d)", fillcolor="white", color="#AB47BC", fontsize=10];
+            res1 [label="⊕ Residual", fillcolor="#E8F5E9", color="#66BB6A", fontsize=9];
+        }
+        
+        // Sub-block 2: FFN
+        subgraph cluster_ffn_block {
+            style="rounded"; color="#FFB74D"; bgcolor="#FFF3E0";
+            label="Feed-Forward Sub-Block"; fontcolor="#E65100"; fontsize=10;
+            
+            norm2 [label="RMSNorm", fillcolor="white", color="#B0BEC5", fontsize=10];
+            ffn [label="Feed-Forward Network\n(SwiGLU Activation)\nComplexity: O(n · d · d_ff)", fillcolor="white", color="#FFB74D", fontsize=10];
+            res2 [label="⊕ Residual", fillcolor="#E8F5E9", color="#66BB6A", fontsize=9];
+        }
+    }
+    
+    // Output head
+    norm_final [label="Final RMSNorm", fillcolor="#ECEFF1", color="#B0BEC5"];
+    proj [label="Output Projection → [batch, seq_len, vocab_size]", fillcolor="#FFF3E0", color="#FFB74D"];
+    softmax [label="Softmax → Next-Token Probability Distribution", fillcolor="#C8E6C9", color="#2E7D32"];
+
+    // ═══ Main flow ═══
+    input -> embed;
+    embed -> norm1;
+    norm1 -> attn;
+    attn -> res1;
+    res1 -> norm2;
+    norm2 -> ffn;
+    ffn -> res2;
+    res2 -> norm_final;
+    norm_final -> proj;
+    proj -> softmax;
+    
+    // ═══ Residual connections (same-rank, no side travel) ═══
+    embed -> res1 [style=dashed, color="#66BB6A", label="skip", constraint=false];
+    res1 -> res2 [style=dashed, color="#66BB6A", label="skip", constraint=false];
+
+    // Annotation
+    params [label="Typical sizes: d_model=8192, d_ff=28672, n_heads=64, n_kv_heads=8\nParameters ≈ 12 · L · d² (dominated by attention + FFN weights)",
+            shape=note, fillcolor="#FFFDE7", color="#FBC02D", fontsize=9, fontcolor="#4A4A4A"];
+    softmax -> params [style=invis];
+}

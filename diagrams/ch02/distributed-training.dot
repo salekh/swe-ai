@@ -1,0 +1,90 @@
+digraph distributed_training {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,8!", ratio=fill,
+           rankdir=TB, nodesep=0.5, ranksep=0.6, pad=0.3, compound=true];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.14,0.07"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Title context
+    title [label="3D Parallelism: How 256 GPUs Train a 70B Model\nReal config: 8 DP × 4 TP × 8 PP",
+           shape=none, fillcolor=white, color=white, fontsize=12, fontcolor="#00758F"];
+
+    // ════════ DATA PARALLELISM ════════
+    subgraph cluster_dp {
+        style="rounded"; color="#1565C0"; bgcolor="#E3F2FD"; penwidth=2;
+        label="Data Parallelism (DP)\nEach GPU has the full model, different data shards"; 
+        fontcolor="#1565C0"; fontsize=11;
+        
+        dp_data [label="Training Batch\n(e.g. 1024 samples)", fillcolor="#FFFDE7", color="#FBC02D", fontsize=10];
+        
+        dp0 [label="GPU 0\nFull Model Copy\nShard 0 (256 samples)", fillcolor="#BBDEFB", color="#42A5F5", fontsize=10];
+        dp1 [label="GPU 1\nFull Model Copy\nShard 1 (256 samples)", fillcolor="#BBDEFB", color="#42A5F5", fontsize=10];
+        dp2 [label="GPU 2\nFull Model Copy\nShard 2 (256 samples)", fillcolor="#BBDEFB", color="#42A5F5", fontsize=10];
+        dp3 [label="GPU 3\nFull Model Copy\nShard 3 (256 samples)", fillcolor="#BBDEFB", color="#42A5F5", fontsize=10];
+        
+        allreduce [label="AllReduce\nSync gradients\nacross all replicas", fillcolor="#FFF3E0", color="#FFB74D", shape=diamond, fontsize=10];
+        
+        dp_data -> dp0;
+        dp_data -> dp1;
+        dp_data -> dp2;
+        dp_data -> dp3;
+        dp0 -> allreduce;
+        dp1 -> allreduce;
+        dp2 -> allreduce;
+        dp3 -> allreduce;
+        
+        dp_note [label="Scales linearly\nBottleneck: gradient sync bandwidth", 
+                 shape=none, fillcolor=white, color=white, fontsize=9, fontcolor="#1565C0"];
+    }
+
+    // ════════ TENSOR PARALLELISM ════════
+    subgraph cluster_tp {
+        style="rounded"; color="#7B1FA2"; bgcolor="#F3E5F5"; penwidth=2;
+        label="Tensor Parallelism (TP)\nSingle layer's weight matrix split across GPUs"; 
+        fontcolor="#7B1FA2"; fontsize=11;
+        
+        tp_layer [label="Attention Layer\nWeight W ∈ ℝ^(d×d)", fillcolor="#FFFDE7", color="#FBC02D", fontsize=10];
+        
+        tp0 [label="GPU 0\nW[:, :d/4]", fillcolor="#E1BEE7", color="#AB47BC", fontsize=10];
+        tp1 [label="GPU 1\nW[:, d/4:d/2]", fillcolor="#E1BEE7", color="#AB47BC", fontsize=10];
+        tp2 [label="GPU 2\nW[:, d/2:3d/4]", fillcolor="#E1BEE7", color="#AB47BC", fontsize=10];
+        tp3 [label="GPU 3\nW[:, 3d/4:]", fillcolor="#E1BEE7", color="#AB47BC", fontsize=10];
+        
+        allgather [label="AllGather\nConcat partial outputs\ninto full activation", fillcolor="#FFF3E0", color="#FFB74D", shape=diamond, fontsize=10];
+        
+        tp_layer -> tp0;
+        tp_layer -> tp1;
+        tp_layer -> tp2;
+        tp_layer -> tp3;
+        tp0 -> allgather;
+        tp1 -> allgather;
+        tp2 -> allgather;
+        tp3 -> allgather;
+        
+        tp_note [label="Requires fast interconnect (NVLink)\nTypically TP=4 or TP=8 within a node", 
+                 shape=none, fillcolor=white, color=white, fontsize=9, fontcolor="#7B1FA2"];
+    }
+
+    // ════════ PIPELINE PARALLELISM ════════
+    subgraph cluster_pp {
+        style="rounded"; color="#2E7D32"; bgcolor="#E8F5E9"; penwidth=2;
+        label="Pipeline Parallelism (PP)\nDifferent layers on different GPUs, micro-batches overlap"; 
+        fontcolor="#2E7D32"; fontsize=11;
+        
+        pp0 [label="Stage 0 (GPU 0)\nLayers 1–20\nMicro-batch A", fillcolor="#C8E6C9", color="#66BB6A", fontsize=10];
+        pp1 [label="Stage 1 (GPU 1)\nLayers 21–40\nMicro-batch A", fillcolor="#C8E6C9", color="#66BB6A", fontsize=10];
+        pp2 [label="Stage 2 (GPU 2)\nLayers 41–60\nMicro-batch A", fillcolor="#C8E6C9", color="#66BB6A", fontsize=10];
+        pp3 [label="Stage 3 (GPU 3)\nLayers 61–80\nMicro-batch A", fillcolor="#C8E6C9", color="#66BB6A", fontsize=10];
+        
+        pp0 -> pp1 [label="activations →", color="#2E7D32", penwidth=1.3];
+        pp1 -> pp2 [label="activations →", color="#2E7D32", penwidth=1.3];
+        pp2 -> pp3 [label="activations →", color="#2E7D32", penwidth=1.3];
+        
+        pp_note [label="Bubble overhead mitigated with micro-batches\nEach stage processes different micro-batch simultaneously", 
+                 shape=none, fillcolor=white, color=white, fontsize=9, fontcolor="#2E7D32"];
+    }
+    
+    // Flow
+    title -> dp_data [style=invis];
+}

@@ -1,0 +1,106 @@
+// oreilly.dot — Shared O'Reilly-style Graphviz attributes
+// Usage: Include these attributes in your diagrams for consistent styling
+//
+// Example:
+//   digraph G {
+//     // Import base style
+//     graph [fontname="Helvetica Neue", fontsize=11, bgcolor="white",
+//            rankdir=TB, nodesep=0.6, ranksep=0.8, pad=0.3,
+//            style="rounded", margin="0.2,0.1"];
+//     node  [fontname="Helvetica Neue", fontsize=10, shape=box,
+//            style="rounded,filled", fillcolor="#F0F4F8", color="#90A4AE",
+//            penwidth=1.2, margin="0.15,0.08"];
+//     edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+//            penwidth=1.0, arrowsize=0.7];
+//
+//     // Your nodes and edges here
+//   }
+//
+// ============================================================================
+// COLOR PALETTE (O'Reilly-inspired muted tones)
+// ============================================================================
+//
+// Primary:
+//   #00758F  — Teal (primary accent, key components)
+//   #2D6A8F  — Blue (secondary components)
+//   #C4362A  — Red (warnings, critical paths)
+//   #1A1A2E  — Dark (text, borders on emphasis)
+//
+// Node fills (light, muted backgrounds):
+//   #F0F4F8  — Default light blue-gray
+//   #E3F2FD  — Light blue (data stores, databases)
+//   #E8F5E9  — Light green (success, outputs)
+//   #FFF3E0  — Light orange (processing, transforms)
+//   #FCE4EC  — Light pink (external systems, warnings)
+//   #F3E5F5  — Light purple (ML/AI components)
+//   #ECEFF1  — Neutral gray (infrastructure)
+//   #FFFDE7  — Light yellow (user-facing components)
+//
+// Border colors (slightly darker than fills):
+//   #90A4AE  — Default gray
+//   #64B5F6  — Blue border
+//   #81C784  — Green border
+//   #FFB74D  — Orange border
+//   #E57373  — Red border
+//   #BA68C8  — Purple border
+//   #B0BEC5  — Neutral border
+//
+// Edge colors:
+//   #607D8B  — Default (blue-gray)
+//   #00758F  — Emphasis (teal)
+//   #C4362A  — Critical/error path (red)
+//   #2E7D32  — Success path (green)
+//
+// ============================================================================
+// NODE STYLE PRESETS (copy-paste into your diagrams)
+// ============================================================================
+//
+// Standard component:
+//   node [style="rounded,filled", fillcolor="#F0F4F8", color="#90A4AE"]
+//
+// Database/store:
+//   node [shape=cylinder, style="filled", fillcolor="#E3F2FD", color="#64B5F6"]
+//
+// ML/AI component:
+//   node [style="rounded,filled", fillcolor="#F3E5F5", color="#BA68C8"]
+//
+// User-facing:
+//   node [style="rounded,filled", fillcolor="#FFFDE7", color="#FDD835"]
+//
+// External system:
+//   node [style="rounded,filled,dashed", fillcolor="#FCE4EC", color="#E57373"]
+//
+// Processing/transform:
+//   node [style="rounded,filled", fillcolor="#FFF3E0", color="#FFB74D"]
+//
+// Success/output:
+//   node [style="rounded,filled", fillcolor="#E8F5E9", color="#81C784"]
+//
+// Infrastructure:
+//   node [style="rounded,filled", fillcolor="#ECEFF1", color="#B0BEC5"]
+//
+// Cluster/group:
+//   subgraph cluster_X {
+//     style="rounded,dashed"; color="#B0BEC5"; bgcolor="#FAFAFA";
+//     fontname="Helvetica Neue"; fontsize=11; fontcolor="#607D8B";
+//     label="Group Name";
+//   }
+//
+// ============================================================================
+// EDGE STYLE PRESETS
+// ============================================================================
+//
+// Standard flow:
+//   edge [color="#607D8B", penwidth=1.0, arrowsize=0.7]
+//
+// Primary/emphasis:
+//   edge [color="#00758F", penwidth=1.5, arrowsize=0.8]
+//
+// Data flow:
+//   edge [color="#64B5F6", style=dashed, penwidth=1.0, arrowsize=0.7]
+//
+// Error/critical path:
+//   edge [color="#C4362A", penwidth=1.2, arrowsize=0.8]
+//
+// Feedback/return:
+//   edge [color="#607D8B", style=dashed, penwidth=0.8, arrowsize=0.6, dir=back]

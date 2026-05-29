@@ -1,0 +1,55 @@
+digraph design_patterns_catalog {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,9!", ratio=fill,
+           rankdir=TB, nodesep=0.35, ranksep=0.4, pad=0.3, compound=true];
+    node  [fontname="Helvetica Neue", fontsize=10, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=8, color="#78909C",
+           penwidth=0.8, arrowsize=0.6];
+
+    title [label="Design Patterns for the Foundation Model Era", shape=none, 
+           fillcolor=white, color=white, fontsize=14, fontcolor="#00758F"];
+
+    // ════════ RELIABILITY PATTERNS ════════
+    subgraph cluster_reliability {
+        style="rounded"; color="#C4362A"; bgcolor="#FCE4EC"; penwidth=2;
+        label="Reliability & Safety"; fontcolor="#C4362A"; fontsize=12;
+        
+        p1 [label="① Validator-Corrector\nProxy\n\nCoerce probabilistic output\ninto strict schemas via\nreflective retry loop", fillcolor="#FFCDD2", color="#E57373"];
+        p2 [label="② Semantic Circuit\nBreaker\n\nDetect stuck/looping agents\nvia embedding similarity\nof consecutive actions", fillcolor="#FFCDD2", color="#E57373"];
+        p5 [label="⑤ Generator-Critic\nLoop\n\nDecouple generation from\nvalidation; adversarial\nreview before release", fillcolor="#FFCDD2", color="#E57373"];
+    }
+
+    // ════════ OPTIMIZATION PATTERNS ════════
+    subgraph cluster_optimization {
+        style="rounded"; color="#1565C0"; bgcolor="#E3F2FD"; penwidth=2;
+        label="Cost & Performance Optimization"; fontcolor="#1565C0"; fontsize=12;
+        
+        p4 [label="④ Cognitive Router\n(Complexity Cascade)\n\nRoute by complexity tier;\nauto-escalate on failure\nto preserve quality", fillcolor="#BBDEFB", color="#42A5F5"];
+        p6 [label="⑥ Speculative Stream\nInterceptor\n\nParse partial token stream\nto fire side-effects before\ngeneration completes", fillcolor="#BBDEFB", color="#42A5F5"];
+        p8 [label="⑧ Semantic Cache\n\nCache by embedding\nsimilarity, not exact match.\nDramatic cost reduction\nfor similar queries", fillcolor="#BBDEFB", color="#42A5F5"];
+    }
+
+    // ════════ STATE PATTERNS ════════
+    subgraph cluster_state {
+        style="rounded"; color="#2E7D32"; bgcolor="#E8F5E9"; penwidth=2;
+        label="State & Memory Management"; fontcolor="#2E7D32"; fontsize=12;
+        
+        p3 [label="③ Contextual Garbage\nCollector\n\nTiered eviction: drop filler,\ncompress history, pin\nsystem instructions", fillcolor="#C8E6C9", color="#66BB6A"];
+        p7 [label="⑦ Event-Sourced\nAgent\n\nImmutable event log of\nevery Observe→Think→Act\ncycle for replay & audit", fillcolor="#C8E6C9", color="#66BB6A"];
+    }
+
+    // ════════ CROSS-CUTTING ════════
+    subgraph cluster_cross {
+        style="rounded"; color="#FF8F00"; bgcolor="#FFF3E0"; penwidth=2;
+        label="Cross-Cutting"; fontcolor="#E65100"; fontsize=12;
+        
+        p9 [label="⑨ Confidence Gate\n\nUse calibrated confidence\nto triage: auto-serve,\nhuman review, or reject", fillcolor="#FFE0B2", color="#FFB74D"];
+    }
+
+    // Composition edges
+    p1 -> p4 [label="failed → escalate", style=dashed, color="#1565C0"];
+    p4 -> p6 [label="stream response", style=dashed, color="#1565C0"];
+    p2 -> p7 [label="trip → checkpoint", style=dashed, color="#2E7D32"];
+    p5 -> p1 [label="critic rejects → retry", style=dashed, color="#C4362A"];
+    p3 -> p7 [label="compress → persist", style=dashed, color="#2E7D32"];
+}

@@ -1,0 +1,88 @@
+digraph rag_system {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10];
+    edge [fontname="Helvetica", fontsize=8];
+    
+    // Color scheme
+    node [fillcolor="#E3F2FD"];  // light blue default
+    
+    // User layer
+    user [label="User Query", shape=ellipse, fillcolor="#FFF3E0"];
+    
+    // Input processing
+    subgraph cluster_input {
+        label="Input Processing";
+        style=dashed;
+        color="#90CAF9";
+        complexity [label="Complexity\nClassifier", fillcolor="#E8F5E9"];
+        embed_q [label="Query\nEmbedding", fillcolor="#E8F5E9"];
+    }
+    
+    // Cache layer
+    subgraph cluster_cache {
+        label="Semantic Cache";
+        style=dashed;
+        color="#FFE082";
+        cache [label="Cache\nLookup\n(cosine > 0.93)", fillcolor="#FFF9C4"];
+    }
+    
+    // Retrieval layer
+    subgraph cluster_retrieval {
+        label="Hybrid Retrieval";
+        style=dashed;
+        color="#90CAF9";
+        bm25 [label="BM25\n(Sparse)", fillcolor="#E3F2FD"];
+        dense [label="Dense\nEmbedding\nSearch", fillcolor="#E3F2FD"];
+        reranker [label="Cross-Encoder\nReranker\n(top-20 → top-5)", fillcolor="#E3F2FD"];
+    }
+    
+    // Model routing
+    subgraph cluster_model {
+        label="Model Routing";
+        style=dashed;
+        color="#CE93D8";
+        router [label="Model\nRouter", fillcolor="#F3E5F5"];
+        flash [label="Gemini Flash\n($0.001/req)", fillcolor="#F3E5F5"];
+        frontier [label="GPT-5.5\n($0.05/req)", fillcolor="#F3E5F5"];
+    }
+    
+    // Output
+    subgraph cluster_output {
+        label="Output Pipeline";
+        style=dashed;
+        color="#A5D6A7";
+        ground [label="Groundedness\nCheck", fillcolor="#E8F5E9"];
+        confidence [label="Confidence\nThreshold", fillcolor="#E8F5E9"];
+    }
+    
+    response [label="Response\n+ Sources", shape=ellipse, fillcolor="#FFF3E0"];
+    fallback [label="\"I don't have\nenough info\"", shape=ellipse, fillcolor="#FFCDD2"];
+    
+    // Knowledge base
+    kb [label="Knowledge Base\n50K Articles", shape=cylinder, fillcolor="#ECEFF1"];
+    
+    // Eval
+    eval [label="Eval Pipeline\n(Weekly Golden Set)", shape=box, fillcolor="#FFE0B2"];
+    
+    // Edges
+    user -> embed_q;
+    user -> complexity;
+    embed_q -> cache;
+    cache -> response [label="HIT", color="#4CAF50", fontcolor="#4CAF50"];
+    cache -> bm25 [label="MISS"];
+    cache -> dense [label="MISS"];
+    kb -> bm25;
+    kb -> dense;
+    bm25 -> reranker;
+    dense -> reranker;
+    complexity -> router;
+    reranker -> router [label="top-5 docs"];
+    router -> flash [label="simple"];
+    router -> frontier [label="complex"];
+    flash -> ground;
+    frontier -> ground;
+    ground -> confidence;
+    confidence -> response [label="high conf", color="#4CAF50", fontcolor="#4CAF50"];
+    confidence -> fallback [label="low conf", color="#F44336", fontcolor="#F44336"];
+    eval -> router [style=dashed, label="quality\ngates"];
+}

@@ -1,0 +1,58 @@
+digraph chunking_strategies {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,6", ratio=compress,
+           rankdir=TB, nodesep=0.5, ranksep=0.6, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.15,0.08"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Document input
+    doc [label="Raw Document", fillcolor="#FFFDE7", color="#FDD835", fontsize=12, penwidth=1.5];
+
+    // Strategy 1: Fixed-size
+    subgraph cluster_fixed {
+        style="rounded"; color="#64B5F6"; bgcolor="#E3F2FD";
+        label="Strategy 1: Fixed-Size Sliding Window"; fontcolor="#1565C0"; fontsize=11;
+        
+        f1 [label="Chunk 1\n[tokens 0–512]", fillcolor="#BBDEFB", color="#64B5F6", fontsize=10];
+        f2 [label="Chunk 2\n[tokens 448–960]\n(64-token overlap)", fillcolor="#BBDEFB", color="#64B5F6", fontsize=10];
+        f3 [label="Chunk 3\n[tokens 896–1408]", fillcolor="#BBDEFB", color="#64B5F6", fontsize=10];
+        
+        f_verdict [label="✅ Simple  ❌ Splits mid-sentence\nBest for: homogeneous text (logs, transcripts)", 
+                   fillcolor="white", color="#64B5F6", shape=none, fontsize=9];
+    }
+
+    // Strategy 2: Semantic/Boundary-aware
+    subgraph cluster_semantic {
+        style="rounded"; color="#81C784"; bgcolor="#E8F5E9";
+        label="Strategy 2: Boundary-Aware Chunking"; fontcolor="#2E7D32"; fontsize=11;
+        
+        s1 [label="§ 2.1 Introduction\n(paragraph-aligned)", fillcolor="#C8E6C9", color="#81C784", fontsize=10];
+        s2 [label="§ 2.2 Methods\n(respects section\nboundaries)", fillcolor="#C8E6C9", color="#81C784", fontsize=10];
+        s3 [label="§ 2.3 Results\n(variable size,\nmax 1024 tokens)", fillcolor="#C8E6C9", color="#81C784", fontsize=10];
+        
+        s_verdict [label="✅ Preserves meaning  ❌ Variable sizes\nBest for: structured docs (articles, wikis)", 
+                   fillcolor="white", color="#81C784", shape=none, fontsize=9];
+    }
+
+    // Strategy 3: Parent-Child (recursive)
+    subgraph cluster_recursive {
+        style="rounded"; color="#BA68C8"; bgcolor="#F3E5F5";
+        label="Strategy 3: Parent-Child (Multi-Resolution)"; fontcolor="#7B1FA2"; fontsize=11;
+        
+        p1 [label="Parent: Full §2\n(2048 tokens)\n← returned to LLM", fillcolor="#E1BEE7", color="#BA68C8", fontsize=10];
+        c1 [label="Child: §2.1\n(256 tokens)\n← used for\nsearch matching", fillcolor="#E1BEE7", color="#BA68C8", fontsize=10];
+        c2 [label="Child: §2.2\n(256 tokens)", fillcolor="#E1BEE7", color="#BA68C8", fontsize=10];
+        
+        p1 -> c1 [label="contains", color="#BA68C8"];
+        p1 -> c2 [label="contains", color="#BA68C8"];
+        
+        r_verdict [label="✅ Best retrieval precision  ❌ Complex indexing\nBest for: high-stakes RAG (legal, medical)",
+                   fillcolor="white", color="#BA68C8", shape=none, fontsize=9];
+    }
+
+    // Connections from document
+    doc -> f1 [label="fixed-size", color="#1565C0"];
+    doc -> s1 [label="boundary-\naware", color="#2E7D32"];
+    doc -> p1 [label="recursive", color="#7B1FA2"];
+}

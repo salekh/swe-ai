@@ -1,0 +1,51 @@
+digraph lora_arch {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,3", ratio=compress,
+           rankdir=LR, nodesep=0.5, ranksep=0.8, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.6];
+
+    // Input
+    input [label="Input x\n[batch, d]", fillcolor="#FFFDE7", color="#FDD835"];
+
+    // Frozen weights path
+    subgraph cluster_frozen {
+        style="rounded,dashed"; color="#B0BEC5"; bgcolor="#FAFAFA";
+        label="Frozen Path (no gradient)"; fontcolor="#607D8B"; fontsize=10;
+        
+        W [label="W (frozen)\n[d × d]\n~billions of params\n❄️ NOT updated", fillcolor="#ECEFF1", color="#B0BEC5", shape=box3d];
+    }
+
+    // LoRA bypass path
+    subgraph cluster_lora {
+        style="rounded"; color="#00758F"; bgcolor="#E0F2F1";
+        label="LoRA Bypass Path (trainable)"; fontcolor="#00758F"; fontsize=10;
+        
+        A [label="A (down-project)\n[d × r]\nr = 16\n🔥 trainable", fillcolor="#F3E5F5", color="#BA68C8"];
+        B [label="B (up-project)\n[r × d]\ninit to zeros\n🔥 trainable", fillcolor="#F3E5F5", color="#BA68C8"];
+    }
+
+    // Sum
+    sum [label="  +  \n(element-wise\naddition)", shape=circle, fillcolor="#E8F5E9", color="#81C784", fontsize=12, width=0.6, fixedsize=true];
+
+    // Output
+    output [label="Output\nW·x + B·A·x", fillcolor="#E8F5E9", color="#81C784"];
+
+    // Annotations
+    frozen_label [label="~99.9% of\nparameters", shape=none, fillcolor=white, color=white, fontcolor="#90A4AE"];
+    lora_label [label="~0.1% of\nparameters", shape=none, fillcolor=white, color=white, fontcolor="#00758F"];
+
+    // Flow
+    input -> W [label="", penwidth=1.5];
+    input -> A [label="", color="#00758F", penwidth=1.5];
+    A -> B [label="r ≪ d\n(bottleneck)", color="#00758F"];
+    
+    W -> sum [label="W·x"];
+    B -> sum [label="α/r · B·A·x", color="#00758F"];
+    sum -> output;
+
+    // Annotations
+    W -> frozen_label [style=invis];
+    B -> lora_label [style=invis];
+}

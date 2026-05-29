@@ -1,0 +1,40 @@
+digraph prompt_lifecycle {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,5", ratio=compress,
+           rankdir=LR, nodesep=0.5, ranksep=0.7, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.15,0.08"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Dev workflow (top)
+    subgraph cluster_dev {
+        style="rounded"; color="#00758F"; bgcolor="#E0F2F1";
+        label="Development Workflow"; fontcolor="#00758F"; fontsize=12;
+        
+        write [label="Write Prompt\n(templated,\nversion-controlled)", fillcolor="#FFFDE7", color="#FDD835"];
+        test [label="Automated\nEval Suite\n(golden dataset)", fillcolor="#FFF3E0", color="#FFB74D"];
+        review [label="Peer Review\n(diff-based,\nlike code review)", fillcolor="#E3F2FD", color="#64B5F6"];
+    }
+    
+    // Registry
+    registry [label="Prompt Registry\n• name + version\n• content hash\n• target model\n• temperature", fillcolor="#F3E5F5", color="#BA68C8", shape=box];
+    
+    // Deployment
+    subgraph cluster_deploy {
+        style="rounded"; color="#2E7D32"; bgcolor="#E8F5E9";
+        label="Production Deployment"; fontcolor="#2E7D32"; fontsize=12;
+        
+        canary [label="Canary\nDeploy\n(5% traffic)", fillcolor="#C8E6C9", color="#81C784"];
+        monitor [label="Monitor\n• quality metrics\n• latency / cost\n• failure rate", fillcolor="#C8E6C9", color="#81C784"];
+        full [label="Full\nRollout\n(100%)", fillcolor="#C8E6C9", color="#81C784"];
+    }
+    
+    // Rollback
+    rollback [label="🔙 Rollback\nto previous\nversion", fillcolor="#FCE4EC", color="#E57373"];
+    
+    // Flow
+    write -> test -> review -> registry;
+    registry -> canary -> monitor -> full;
+    monitor -> rollback [label="degradation\ndetected", color="#C4362A", style=dashed];
+    rollback -> registry [style=dashed, color="#C4362A"];
+}

@@ -1,0 +1,39 @@
+digraph agent_guardrails {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,5", ratio=compress,
+           rankdir=LR, nodesep=0.4, ranksep=0.6, pad=0.3];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.12,0.06"];
+    edge  [fontname="Helvetica Neue", fontsize=9, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Agent request
+    request [label="Agent\nAction\nRequest", fillcolor="#FFFDE7", color="#F9A825", fontsize=12, penwidth=2];
+
+    // Gate 1: Allowlist
+    gate1 [label="Gate 1\nTool Allowlist\n(only registered\ntools permitted)", fillcolor="#E3F2FD", color="#1565C0"];
+    
+    // Gate 2: Input validation
+    gate2 [label="Gate 2\nInput Validation\n(schema check,\ninjection prevention)", fillcolor="#E3F2FD", color="#1565C0"];
+
+    // Gate 3: Rate limiting  
+    gate3 [label="Gate 3\nRate Limits\n(per-tool caps,\ncost budget)", fillcolor="#FFF3E0", color="#FFB74D"];
+    
+    // Gate 4: Approval
+    gate4 [label="Gate 4\nHuman Approval\n(for destructive\nactions: delete,\ndeploy, email)", fillcolor="#FCE4EC", color="#E57373"];
+    
+    // Gate 5: Sandbox
+    gate5 [label="Gate 5\nSandboxed\nExecution\n(containers,\nread-only FS)", fillcolor="#E8F5E9", color="#2E7D32"];
+
+    // Output
+    exec [label="Execute\n& Log", fillcolor="#C8E6C9", color="#2E7D32", fontsize=11, penwidth=2];
+    
+    // Blocked
+    block [label="✗ Blocked\n+ logged", fillcolor="#FCE4EC", color="#C4362A", fontsize=10];
+
+    // Flow
+    request -> gate1 -> gate2 -> gate3 -> gate4 -> gate5 -> exec;
+    gate1 -> block [style=dashed, color="#C4362A"];
+    gate2 -> block [style=dashed, color="#C4362A"];
+    gate3 -> block [style=dashed, color="#C4362A"];
+    gate4 -> block [label="denied", style=dashed, color="#C4362A"];
+}

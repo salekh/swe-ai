@@ -1,0 +1,70 @@
+digraph rlhf_pipeline {
+    graph [fontname="Helvetica Neue", fontsize=13, bgcolor="white", size="6.4,4", ratio=compress,
+           rankdir=TB, nodesep=0.6, ranksep=0.8, pad=0.4];
+    node  [fontname="Helvetica Neue", fontsize=11, shape=box,
+           style="rounded,filled", penwidth=1.2, margin="0.15,0.08"];
+    edge  [fontname="Helvetica Neue", fontsize=10, color="#607D8B",
+           penwidth=1.0, arrowsize=0.7];
+
+    // Stage labels
+    s1 [label="Stage 1: Supervised Fine-Tuning", shape=none, 
+        fontsize=12, fontcolor="#00758F", style=""];
+    s2 [label="Stage 2: Reward Model Training", shape=none,
+        fontsize=12, fontcolor="#00758F", style=""];
+    s3 [label="Stage 3: PPO Optimization", shape=none,
+        fontsize=12, fontcolor="#00758F", style=""];
+
+    // Stage 1
+    subgraph cluster_sft {
+        style="rounded,dashed"; color="#64B5F6"; bgcolor="#E3F2FD";
+        label=""; fontcolor="#1565C0";
+        
+        base [label="Pre-trained\nBase Model", fillcolor="#F0F4F8", color="#90A4AE"];
+        sft_data [label="SFT Dataset\n(instruction, response)\n~10K-100K examples", fillcolor="#FFFDE7", color="#FDD835", shape=cylinder];
+        sft_model [label="SFT Model\n(follows instructions)", fillcolor="#E8F5E9", color="#81C784"];
+        
+        base -> sft_model [label="fine-tune"];
+        sft_data -> sft_model [style=dashed, color="#64B5F6"];
+    }
+
+    // Stage 2
+    subgraph cluster_rm {
+        style="rounded,dashed"; color="#BA68C8"; bgcolor="#F3E5F5";
+        label=""; fontcolor="#7B1FA2";
+        
+        gen [label="Generate\nMultiple\nResponses", fillcolor="#E1BEE7", color="#BA68C8"];
+        human [label="Human\nAnnotators\nRank Responses", fillcolor="#FFFDE7", color="#FDD835"];
+        pref_data [label="Preference Data\n(chosen, rejected)\n~50K-500K pairs", fillcolor="#FFFDE7", color="#FDD835", shape=cylinder];
+        rm [label="Reward Model\nscore(prompt, response) → ℝ", fillcolor="#FFF3E0", color="#FFB74D"];
+        
+        gen -> human [label="responses"];
+        human -> pref_data;
+        pref_data -> rm [label="train"];
+    }
+
+    // Stage 3
+    subgraph cluster_ppo {
+        style="rounded,dashed"; color="#81C784"; bgcolor="#E8F5E9";
+        label=""; fontcolor="#2E7D32";
+        
+        policy [label="Policy Model\n(being optimized)", fillcolor="#C8E6C9", color="#66BB6A"];
+        ref [label="Reference Model\n(frozen SFT copy)", fillcolor="#ECEFF1", color="#B0BEC5"];
+        rm2 [label="Reward Model\n(frozen)", fillcolor="#FFF3E0", color="#FFB74D"];
+        kl [label="KL Penalty\nπ_θ vs π_ref", fillcolor="#FCE4EC", color="#E57373"];
+        reward [label="Final Reward\nR(x,y) - β·KL", fillcolor="#E8F5E9", color="#81C784"];
+        
+        policy -> rm2 [label="generate\n& score"];
+        ref -> kl;
+        policy -> kl;
+        rm2 -> reward;
+        kl -> reward;
+        reward -> policy [label="PPO update", color="#2E7D32", penwidth=1.5];
+    }
+
+    // Cross-stage connections
+    s1 -> s2 -> s3 [style=invis];
+    sft_model -> gen [color="#00758F", penwidth=1.5, label="use to generate"];
+    sft_model -> ref [color="#00758F", style=dashed, label="copy (freeze)"];
+    sft_model -> policy [color="#00758F", penwidth=1.5, label="initialize"];
+    rm -> rm2 [color="#00758F", style=dashed, label="copy (freeze)"];
+}
